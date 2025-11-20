@@ -19,6 +19,13 @@
   gap: 20px;
 }
 
+.header-content > div:last-child {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
 .header-title h1 {
   color: #00d970;
   font-size: 2.5rem;

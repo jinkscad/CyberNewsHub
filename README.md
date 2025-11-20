@@ -10,6 +10,7 @@ A modern web application that aggregates cybersecurity news from leading sources
 - **Beautiful UI**: Modern, responsive design with smooth animations
 - **Statistics Dashboard**: View total articles, recent activity, and category breakdowns
 - **Pagination**: Navigate through large collections of articles efficiently
+- **Automatic Cleanup**: Automatically removes articles older than 90 days to keep the database lean
 
 ## News Sources
 
@@ -159,12 +160,25 @@ If you prefer to start servers separately:
 ## API Endpoints
 
 - `GET /api/health` - Health check
-- `POST /api/feeds/fetch` - Fetch all RSS feeds
+- `POST /api/feeds/fetch` - Fetch all RSS feeds (automatically cleans up old articles)
 - `GET /api/articles` - Get articles with filters and pagination
   - Query parameters: `page`, `per_page`, `category`, `source`, `search`, `days`
 - `GET /api/articles/sources` - Get list of all sources
 - `GET /api/articles/categories` - Get list of all categories
 - `GET /api/stats` - Get statistics about articles
+- `POST /api/cleanup` - Manually clean up old articles (optional: `{"days": 90}` in body)
+
+## Database Management
+
+The app automatically manages database size by:
+- **Automatic Cleanup**: When fetching feeds, articles older than 90 days are automatically deleted
+- **Configurable Retention**: Set `ARTICLE_RETENTION_DAYS` environment variable to change retention period (default: 90 days)
+- **Duplicate Prevention**: Articles are deduplicated by URL, so fetching multiple times won't create duplicates
+
+To customize retention period, set the environment variable:
+```bash
+export ARTICLE_RETENTION_DAYS=60  # Keep only last 60 days
+```
 
 ## Project Structure
 

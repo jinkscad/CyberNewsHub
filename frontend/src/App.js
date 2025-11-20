@@ -24,6 +24,7 @@ function App() {
   });
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [fastMode, setFastMode] = useState(false);
 
   useEffect(() => {
     loadSources();
@@ -87,21 +88,34 @@ function App() {
   const handleFetchFeeds = async () => {
     setFetching(true);
     try {
-      const response = await axios.post(`${API_BASE}/feeds/fetch`, {}, {
-        timeout: 120000 // 2 minute timeout for fetching all feeds
+      const startTime = Date.now();
+      const response = await axios.post(`${API_BASE}/feeds/fetch`, {
+        only_recent: fastMode,
+        recent_days: 1, // 1 day = 24 hours
+        max_workers: 10
+      }, {
+        timeout: fastMode ? 60000 : 120000 // 1 min for fast mode, 2 min for full
       });
       
-      const { new_articles, total_fetched, successful_feeds, failed_feeds } = response.data;
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+      
+      const { new_articles, total_fetched, successful_feeds, failed_feeds, old_articles_deleted, retention_days } = response.data;
       
       let message = `Successfully fetched ${new_articles} new articles from ${total_fetched} total articles!\n\n`;
       message += `✓ ${successful_feeds} feeds succeeded\n`;
       if (failed_feeds > 0) {
-        message += `✗ ${failed_feeds} feeds failed (this is normal - some feeds may be temporarily unavailable)`;
+        message += `✗ ${failed_feeds} feeds failed (this is normal - some feeds may be temporarily unavailable)\n`;
       }
+      if (old_articles_deleted > 0) {
+        message += `\n🗑️ Cleaned up ${old_articles_deleted} old articles (keeping last ${retention_days} days)\n`;
+      }
+      message += `\n⏱️ Completed in ${elapsed} seconds`;
       
       alert(message);
+      // Reload everything to show updated counts
       loadArticles();
       loadStats();
+      loadCategories(); // Also reload categories in case new ones appeared
     } catch (error) {
       console.error('Error fetching feeds:', error);
       let errorMessage = 'Error fetching feeds. ';
@@ -113,6 +127,33 @@ function App() {
         errorMessage += 'Please make sure the backend is running.';
       }
       alert(errorMessage);
+    } finally {
+      setFetching(false);
+    }
+  };
+
+  const handleReCategorize = async () => {
+    if (!window.confirm('Re-categorize all articles? This will update categories and country/region tags based on article content.')) {
+      return;
+    }
+    
+    setFetching(true);
+    try {
+      const response = await axios.post(`${API_BASE}/articles/re-categorize`);
+      let message = `Successfully updated articles!\n\n`;
+      if (response.data.categories_updated > 0) {
+        message += `✓ ${response.data.categories_updated} categories updated\n`;
+      }
+      if (response.data.regions_updated > 0) {
+        message += `✓ ${response.data.regions_updated} country/region tags updated\n`;
+      }
+      message += `\nCategories: News, Event, Research, Alert`;
+      alert(message);
+      loadArticles();
+      loadCategories();
+    } catch (error) {
+      console.error('Error re-categorizing:', error);
+      alert('Error re-categorizing articles. Please try again.');
     } finally {
       setFetching(false);
     }
@@ -130,7 +171,13 @@ function App() {
 
   return (
     <div className="App">
-      <Header onFetchFeeds={handleFetchFeeds} fetching={fetching} />
+      <Header 
+        onFetchFeeds={handleFetchFeeds} 
+        fetching={fetching}
+        fastMode={fastMode}
+        onToggleFastMode={() => setFastMode(!fastMode)}
+        onReCategorize={handleReCategorize}
+      />
       <div className="container">
         <Stats stats={stats} />
         <Filters

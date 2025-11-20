@@ -11,14 +11,8 @@ function Stats({ stats }) {
         <div className="stat-label">Total Articles</div>
       </div>
       <div className="stat-card">
-        <div className="stat-value">{stats.recent_articles_7d?.toLocaleString() || 0}</div>
-        <div className="stat-label">Last 7 Days</div>
-      </div>
-      <div className="stat-card">
-        <div className="stat-value">
-          {Object.keys(stats.by_category || {}).length}
-        </div>
-        <div className="stat-label">Categories</div>
+        <div className="stat-value">{stats.recent_articles_24h?.toLocaleString() || 0}</div>
+        <div className="stat-label">Last 24 hrs</div>
       </div>
     </div>
   );
