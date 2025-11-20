@@ -1,4 +1,4 @@
-# 🛡️ CyberNewsHub
+# CyberNewsHub
 
 A modern web application that aggregates cybersecurity news from leading sources around the world, including industry news sites, government agencies, security vendors, and research labs.
 
