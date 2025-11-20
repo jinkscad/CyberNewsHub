@@ -151,7 +151,7 @@ If you prefer to start servers separately:
    ```
 
 3. **Open your browser** and navigate to `http://localhost:3000`
-4. **Fetch news**: Click the "🔄 Fetch Latest News" button to aggregate articles from all sources (this may take 1-2 minutes)
+4. **Fetch news**: Click the "Fetch Latest News" button to aggregate articles from all sources (this may take 1-2 minutes)
 5. **Filter articles**: Use the search bar, category dropdown, source dropdown, or time range filter
 6. **Read articles**: Click on any article title or "Read Full Article" to open the original source
 

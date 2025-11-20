@@ -17,7 +17,7 @@ log_files = []
 
 def cleanup(signum=None, frame=None):
     """Cleanup function to kill all child processes"""
-    print("\n\n🛑 Shutting down servers...")
+    print("\n\nShutting down servers...")
     for process in processes:
         try:
             process.terminate()
@@ -48,14 +48,14 @@ def check_setup():
     frontend_node_modules = Path("frontend/node_modules")
     
     if not backend_venv.exists() or not frontend_node_modules.exists():
-        print("❌ Setup not complete. Running setup first...")
+        print("Setup not complete. Running setup first...")
         print("   Run: ./setup.sh")
         return False
     return True
 
 def start_backend():
     """Start the Flask backend server"""
-    print("🚀 Starting backend server...")
+    print("Starting backend server...")
     
     # Determine the Python executable in venv
     if sys.platform == "win32":
@@ -78,16 +78,16 @@ def start_backend():
             universal_newlines=True
         )
         processes.append(process)
-        print("✅ Backend starting (check logs for actual port)")
+        print("Backend starting (check logs for actual port)")
         print("   (Logs: backend.log)")
         return process
     except Exception as e:
-        print(f"❌ Failed to start backend: {e}")
+        print(f"Failed to start backend: {e}")
         return None
 
 def start_frontend():
     """Start the React frontend server"""
-    print("🚀 Starting frontend server...")
+    print("Starting frontend server...")
     
     try:
         if sys.platform == "win32":
@@ -106,16 +106,16 @@ def start_frontend():
             universal_newlines=True
         )
         processes.append(process)
-        print("✅ Frontend starting on http://localhost:3000")
+        print("Frontend starting on http://localhost:3000")
         print("   (Logs: frontend.log)")
         print("   (This may take 30-60 seconds to compile)")
         return process
     except Exception as e:
-        print(f"❌ Failed to start frontend: {e}")
+        print(f"Failed to start frontend: {e}")
         return None
 
 def main():
-    print("🛡️  CyberNewsHub")
+    print("CyberNewsHub")
     print("=" * 50)
     print()
     
@@ -138,12 +138,12 @@ def main():
         sys.exit(1)
     
     print()
-    print("🎉 CyberNewsHub is running!")
+    print("CyberNewsHub is running!")
     print()
-    print("🌐 Frontend: http://localhost:3000")
-    print("🔧 Backend API: http://localhost:8000 (or check backend.log)")
+    print("Frontend: http://localhost:3000")
+    print("Backend API: http://localhost:8000 (or check backend.log)")
     print()
-    print("📝 View logs:")
+    print("View logs:")
     print("   Backend:  tail -f backend.log")
     print("   Frontend: tail -f frontend.log")
     print()
@@ -156,11 +156,11 @@ def main():
         while True:
             # Check if processes are still alive
             if backend.poll() is not None:
-                print("❌ Backend process died!")
+                print("Backend process died!")
                 cleanup()
             
             if frontend.poll() is not None:
-                print("❌ Frontend process died!")
+                print("Frontend process died!")
                 cleanup()
             
             time.sleep(1)

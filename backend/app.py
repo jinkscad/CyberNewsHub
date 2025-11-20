@@ -330,10 +330,10 @@ def fetch_all_feeds():
                 if result['success']:
                     all_articles.extend(result['articles'])
                     successful_feeds += 1
-                    print(f"  ✓ {result['feed']}: {result['count']} articles")
+                    print(f"  {result['feed']}: {result['count']} articles")
                 else:
                     failed_feeds += 1
-                    print(f"  ✗ {result['feed']}: {result.get('error', 'No articles')}")
+                    print(f"  {result['feed']}: {result.get('error', 'No articles')}")
         
         # Batch database operations for better performance
         print(f"\nProcessing {len(all_articles)} articles...")
@@ -575,7 +575,7 @@ with app.app_context():
             if 'category' in columns:
                 db.session.execute(text('UPDATE article SET publisher_type = category WHERE category IS NOT NULL'))
             db.session.commit()
-            print("✓ Migration complete: publisher_type added")
+            print("Migration complete: publisher_type added")
         
         # Add content_type column if it doesn't exist
         if 'content_type' not in columns:
@@ -584,7 +584,7 @@ with app.app_context():
             # Set default content_type for existing articles
             db.session.execute(text("UPDATE article SET content_type = 'News' WHERE content_type IS NULL"))
             db.session.commit()
-            print("✓ Migration complete: content_type added")
+            print("Migration complete: content_type added")
         
         # Add country_region column if it doesn't exist
         if 'country_region' not in columns:
@@ -593,7 +593,7 @@ with app.app_context():
             # Set default country_region for existing articles
             db.session.execute(text("UPDATE article SET country_region = 'Global' WHERE country_region IS NULL"))
             db.session.commit()
-            print("✓ Migration complete: country_region added")
+            print("Migration complete: country_region added")
             
             # Re-categorize existing articles to get country_region (convert abbreviations to full names)
             try:
@@ -607,7 +607,7 @@ with app.app_context():
                             article.country_region = new_region
                             updated_count += 1
                     db.session.commit()
-                    print(f"✓ Updated country_region for {updated_count} articles")
+                    print(f"Updated country_region for {updated_count} articles")
             except Exception as e:
                 print(f"Note: Could not set country_region for existing articles: {e}")
                 db.session.rollback()
@@ -650,7 +650,7 @@ with app.app_context():
                             article.content_type = new_category
                             updated_count += 1
                     db.session.commit()
-                    print(f"✓ Re-categorized {updated_count} articles")
+                    print(f"Re-categorized {updated_count} articles")
             except Exception as e:
                 print(f"Note: Could not re-categorize existing articles: {e}")
                 db.session.rollback()
@@ -674,7 +674,7 @@ if __name__ == '__main__':
         app.run(debug=True, port=port, host='127.0.0.1')
     except OSError as e:
         if "Address already in use" in str(e):
-            print(f"\n❌ ERROR: Port {port} is already in use!")
+            print(f"\nERROR: Port {port} is already in use!")
             print(f"   Please stop the other process or set PORT environment variable:")
             print(f"   PORT=8001 python app.py")
             raise

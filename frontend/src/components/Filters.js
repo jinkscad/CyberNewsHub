@@ -5,7 +5,7 @@ function Filters({ filters, sources, categories, onFilterChange }) {
   return (
     <div className="filters-container">
       <div className="filter-group">
-        <label htmlFor="search">🔍 Search</label>
+        <label htmlFor="search">Search</label>
         <input
           id="search"
           type="text"
@@ -17,7 +17,7 @@ function Filters({ filters, sources, categories, onFilterChange }) {
       </div>
       
       <div className="filter-group">
-        <label htmlFor="category">📁 Category</label>
+        <label htmlFor="category">Category</label>
         <select
           id="category"
           value={filters.category}
@@ -32,7 +32,7 @@ function Filters({ filters, sources, categories, onFilterChange }) {
       </div>
       
       <div className="filter-group">
-        <label htmlFor="source">📰 Source</label>
+        <label htmlFor="source">Source</label>
         <select
           id="source"
           value={filters.source}
@@ -47,7 +47,7 @@ function Filters({ filters, sources, categories, onFilterChange }) {
       </div>
       
       <div className="filter-group">
-        <label htmlFor="days">📅 Time Range</label>
+        <label htmlFor="days">Time Range</label>
         <select
           id="days"
           value={filters.days}

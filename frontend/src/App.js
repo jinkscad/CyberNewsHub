@@ -102,14 +102,14 @@ function App() {
       const { new_articles, total_fetched, successful_feeds, failed_feeds, old_articles_deleted, retention_days } = response.data;
       
       let message = `Successfully fetched ${new_articles} new articles from ${total_fetched} total articles!\n\n`;
-      message += `✓ ${successful_feeds} feeds succeeded\n`;
+      message += `${successful_feeds} feeds succeeded\n`;
       if (failed_feeds > 0) {
-        message += `✗ ${failed_feeds} feeds failed (this is normal - some feeds may be temporarily unavailable)\n`;
+        message += `${failed_feeds} feeds failed (this is normal - some feeds may be temporarily unavailable)\n`;
       }
       if (old_articles_deleted > 0) {
-        message += `\n🗑️ Cleaned up ${old_articles_deleted} old articles (keeping last ${retention_days} days)\n`;
+        message += `\nCleaned up ${old_articles_deleted} old articles (keeping last ${retention_days} days)\n`;
       }
-      message += `\n⏱️ Completed in ${elapsed} seconds`;
+      message += `\nCompleted in ${elapsed} seconds`;
       
       alert(message);
       // Reload everything to show updated counts
@@ -142,10 +142,10 @@ function App() {
       const response = await axios.post(`${API_BASE}/articles/re-categorize`);
       let message = `Successfully updated articles!\n\n`;
       if (response.data.categories_updated > 0) {
-        message += `✓ ${response.data.categories_updated} categories updated\n`;
+        message += `${response.data.categories_updated} categories updated\n`;
       }
       if (response.data.regions_updated > 0) {
-        message += `✓ ${response.data.regions_updated} country/region tags updated\n`;
+        message += `${response.data.regions_updated} country/region tags updated\n`;
       }
       message += `\nCategories: News, Event, Research, Alert`;
       alert(message);

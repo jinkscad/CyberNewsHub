@@ -1,4 +1,4 @@
-# 🚀 Quick Start Guide
+# Quick Start Guide
 
 ## One-Command Setup & Start
 
@@ -36,7 +36,7 @@ That's it! The app will be available at **http://localhost:3000**
 
 ## First Steps After Starting
 
-1. Click **"🔄 Fetch Latest News"** to aggregate articles from all sources
+1. Click **"Fetch Latest News"** to aggregate articles from all sources
 2. Wait a few moments for the fetch to complete
 3. Browse articles, use filters, and search!
 

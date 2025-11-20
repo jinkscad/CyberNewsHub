@@ -6,7 +6,7 @@ function Header({ onFetchFeeds, fetching, fastMode, onToggleFastMode, onReCatego
     <header className="header">
       <div className="header-content">
         <div className="header-title">
-          <h1>🛡️ CyberNewsHub</h1>
+          <h1>CyberNewsHub</h1>
           <p className="subtitle">Global Cybersecurity News Aggregator</p>
         </div>
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -26,14 +26,14 @@ function Header({ onFetchFeeds, fetching, fastMode, onToggleFastMode, onReCatego
             style={{ fontSize: '12px', padding: '10px 16px' }}
             title="Re-categorize all articles"
           >
-            🏷️ Re-categorize
+            Re-categorize
           </button>
           <button
             className="fetch-btn"
             onClick={onFetchFeeds}
             disabled={fetching}
           >
-            {fetching ? 'Fetching...' : '🔄 Fetch Latest News'}
+            {fetching ? 'Fetching...' : 'Fetch Latest News'}
           </button>
         </div>
       </div>
