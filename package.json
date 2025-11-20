@@ -1,0 +1,17 @@
+{
+  "name": "cybernews-hub",
+  "version": "1.0.0",
+  "description": "Cybersecurity News Aggregator",
+  "scripts": {
+    "setup": "cd backend && python3 -m venv venv && source venv/bin/activate && pip install -q -r ../requirements.txt && cd ../frontend && npm install",
+    "start": "concurrently \"npm run start:backend\" \"npm run start:frontend\"",
+    "start:backend": "cd backend && source venv/bin/activate && python app.py",
+    "start:frontend": "cd frontend && npm start",
+    "install:frontend": "cd frontend && npm install",
+    "install:backend": "cd backend && source venv/bin/activate && pip install -r ../requirements.txt"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
+

@@ -1,0 +1,120 @@
+.article-card {
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(0, 183, 255, 0.3);
+  border-radius: 4px;
+  padding: 25px;
+  transition: all 0.3s ease;
+  border-left: 3px solid transparent;
+  position: relative;
+}
+
+.article-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(0, 255, 136, 0.5);
+  border-left-color: rgba(0, 255, 136, 0.6);
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.article-header {
+  margin-bottom: 15px;
+}
+
+.article-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.article-category {
+  padding: 6px 14px;
+  border-radius: 4px;
+  color: #0a0a0a;
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-family: 'Inter', sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  text-shadow: none;
+}
+
+.article-source {
+  color: #5aa3c4;
+  font-size: 0.85rem;
+  font-weight: 500;
+  font-family: 'Inter', sans-serif;
+}
+
+.article-date {
+  color: rgba(0, 217, 112, 0.6);
+  font-size: 0.85rem;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.article-title {
+  margin-bottom: 12px;
+  font-size: 1.4rem;
+  line-height: 1.5;
+  font-family: 'Inter', sans-serif;
+  font-weight: 600;
+}
+
+.article-link {
+  color: #d0d0d0;
+  text-decoration: none;
+  transition: all 0.3s ease;
+}
+
+.article-link:hover {
+  color: #00d970;
+}
+
+.article-description {
+  color: rgba(208, 208, 208, 0.7);
+  line-height: 1.6;
+  margin-bottom: 15px;
+  font-size: 0.95rem;
+  font-family: 'Inter', sans-serif;
+}
+
+.read-more {
+  display: inline-block;
+  color: #00d970;
+  text-decoration: none;
+  font-weight: 600;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.9rem;
+  letter-spacing: 0.5px;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.read-more::after {
+  content: ' →';
+  transition: transform 0.3s ease;
+  display: inline-block;
+}
+
+.read-more:hover {
+  color: #5aa3c4;
+}
+
+.read-more:hover::after {
+  transform: translateX(5px);
+}
+
+@media (max-width: 768px) {
+  .article-card {
+    padding: 20px;
+  }
+  
+  .article-title {
+    font-size: 1.2rem;
+  }
+  
+  .article-meta {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+

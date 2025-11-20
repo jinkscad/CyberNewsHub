@@ -1,0 +1,20 @@
+.article-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.no-articles {
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(0, 183, 255, 0.3);
+  border-radius: 4px;
+  padding: 60px 40px;
+  text-align: center;
+}
+
+.no-articles p {
+  color: #5aa3c4;
+  font-size: 1.1rem;
+  font-family: 'Inter', sans-serif;
+}
+
