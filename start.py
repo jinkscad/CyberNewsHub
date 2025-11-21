@@ -89,6 +89,34 @@ def start_frontend():
     """Start the React frontend server"""
     print("Starting frontend server...")
     
+    # Check if port 3000 is in use and kill existing processes
+    try:
+        import socket
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        result = sock.connect_ex(('127.0.0.1', 3000))
+        sock.close()
+        if result == 0:
+            print("Port 3000 is in use. Attempting to free it...")
+            try:
+                if sys.platform != "win32":
+                    # Kill processes on port 3000 (Unix/Mac)
+                    subprocess.run(["lsof", "-ti:3000"], check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                    pids = subprocess.run(["lsof", "-ti:3000"], capture_output=True, text=True)
+                    if pids.stdout.strip():
+                        for pid in pids.stdout.strip().split('\n'):
+                            if pid:
+                                try:
+                                    subprocess.run(["kill", "-9", pid], check=False)
+                                    print(f"  Killed process {pid} on port 3000")
+                                except:
+                                    pass
+                        time.sleep(1)  # Wait a moment for port to be freed
+            except Exception as e:
+                print(f"  Warning: Could not free port 3000: {e}")
+                print("  Please manually stop the process using port 3000")
+    except Exception:
+        pass  # If we can't check, just try to start anyway
+    
     try:
         if sys.platform == "win32":
             npm_cmd = "npm.cmd"

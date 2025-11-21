@@ -16,19 +16,26 @@ function App() {
   const [stats, setStats] = useState(null);
   const [sources, setSources] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [countries, setCountries] = useState([]);
   const [filters, setFilters] = useState({
     category: '',
     source: '',
     search: '',
-    days: ''
+    days: '',
+    countries: [],
+    sort_by: 'newest'
   });
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [fastMode, setFastMode] = useState(false);
+  
+  // Check if any filters are active
+  const hasActiveFilters = filters.category || filters.source || filters.search || filters.days || (filters.countries && filters.countries.length > 0);
 
   useEffect(() => {
     loadSources();
     loadCategories();
+    loadCountries();
     loadStats();
     loadArticles();
   }, [filters, page]);
@@ -41,12 +48,26 @@ function App() {
         per_page: 50,
         ...filters
       };
-      // Remove empty filters
+      // Handle countries array - convert to comma-separated string
+      if (params.countries && Array.isArray(params.countries) && params.countries.length > 0) {
+        params.countries = params.countries.join(',');
+      } else {
+        delete params.countries;
+      }
+      // Remove empty filters (but always keep sort_by)
       Object.keys(params).forEach(key => {
-        if (params[key] === '' || params[key] === null) {
+        if (key === 'sort_by') {
+          // Always include sort_by, even if it's the default
+          return;
+        }
+        if (params[key] === '' || params[key] === null || (Array.isArray(params[key]) && params[key].length === 0)) {
           delete params[key];
         }
       });
+      // Ensure sort_by is always set (default to 'newest')
+      if (!params.sort_by) {
+        params.sort_by = 'newest';
+      }
       
       const response = await axios.get(`${API_BASE}/articles`, { params });
       setArticles(response.data.articles);
@@ -76,9 +97,35 @@ function App() {
     }
   };
 
+  const loadCountries = async () => {
+    try {
+      const response = await axios.get(`${API_BASE}/articles/countries`);
+      setCountries(response.data.countries);
+    } catch (error) {
+      console.error('Error loading countries:', error);
+    }
+  };
+
   const loadStats = async () => {
     try {
-      const response = await axios.get(`${API_BASE}/stats`);
+      // Pass current filters to stats endpoint
+      const params = {
+        ...filters
+      };
+      // Handle countries array - convert to comma-separated string
+      if (params.countries && Array.isArray(params.countries) && params.countries.length > 0) {
+        params.countries = params.countries.join(',');
+      } else {
+        delete params.countries;
+      }
+      // Remove empty filters
+      Object.keys(params).forEach(key => {
+        if (params[key] === '' || params[key] === null || (Array.isArray(params[key]) && params[key].length === 0)) {
+          delete params[key];
+        }
+      });
+      
+      const response = await axios.get(`${API_BASE}/stats`, { params });
       setStats(response.data);
     } catch (error) {
       console.error('Error loading stats:', error);
@@ -99,15 +146,33 @@ function App() {
       
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
       
-      const { new_articles, total_fetched, successful_feeds, failed_feeds, old_articles_deleted, retention_days } = response.data;
+      const { new_articles, total_fetched, successful_feeds, failed_feeds, failed_feed_details, old_articles_deleted, retention_days } = response.data;
       
       let message = `Successfully fetched ${new_articles} new articles from ${total_fetched} total articles!\n\n`;
       message += `${successful_feeds} feeds succeeded\n`;
       if (failed_feeds > 0) {
-        message += `${failed_feeds} feeds failed (this is normal - some feeds may be temporarily unavailable)\n`;
+        message += `${failed_feeds} feeds failed\n\n`;
+        
+        // Show error details if available
+        if (failed_feed_details && failed_feed_details.length > 0) {
+          message += `Error Details (first ${Math.min(10, failed_feed_details.length)}):\n`;
+          message += '─'.repeat(50) + '\n';
+          failed_feed_details.slice(0, 10).forEach((detail, idx) => {
+            message += `${idx + 1}. ${detail.name}\n`;
+            message += `   Error: ${detail.error}\n`;
+            if (detail.url) {
+              message += `   URL: ${detail.url.substring(0, 60)}${detail.url.length > 60 ? '...' : ''}\n`;
+            }
+            message += '\n';
+          });
+          if (failed_feed_details.length > 10) {
+            message += `... and ${failed_feed_details.length - 10} more (check backend.log for full details)\n\n`;
+          }
+          message += 'Check backend.log for complete error details.\n\n';
+        }
       }
       if (old_articles_deleted > 0) {
-        message += `\nCleaned up ${old_articles_deleted} old articles (keeping last ${retention_days} days)\n`;
+        message += `Cleaned up ${old_articles_deleted} old articles (keeping last ${retention_days} days)\n`;
       }
       message += `\nCompleted in ${elapsed} seconds`;
       
@@ -179,17 +244,32 @@ function App() {
         onReCategorize={handleReCategorize}
       />
       <div className="container">
-        <Stats stats={stats} />
+        <Stats stats={stats} hasActiveFilters={hasActiveFilters} />
         <Filters
           filters={filters}
           sources={sources}
           categories={categories}
+          countries={countries}
           onFilterChange={handleFilterChange}
         />
         {loading ? (
           <LoadingSpinner />
         ) : (
           <>
+            <div className="article-toolbar">
+              <div className="sort-control">
+                <label htmlFor="sort_by">Sort By:</label>
+                <select
+                  id="sort_by"
+                  value={filters.sort_by || 'newest'}
+                  onChange={(e) => handleFilterChange('sort_by', e.target.value)}
+                  className="sort-select"
+                >
+                  <option value="newest">Newest First</option>
+                  <option value="oldest">Oldest First</option>
+                </select>
+              </div>
+            </div>
             <ArticleList articles={articles} />
             {totalPages > 1 && (
               <div className="pagination">

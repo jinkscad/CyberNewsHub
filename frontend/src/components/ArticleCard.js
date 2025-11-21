@@ -46,6 +46,36 @@ function ArticleCard({ article }) {
     }
   };
 
+  const getCountries = (countryRegion) => {
+    if (!countryRegion || countryRegion === 'Global') {
+      return ['Global'];
+    }
+    
+    // Split by comma and clean up, ensure proper capitalization
+    const countries = countryRegion.split(',')
+      .map(c => c.trim())
+      .filter(c => c)
+      .map(c => {
+        // Ensure proper title case (capitalize first letter of each word)
+        return c.split(' ').map(word => 
+          word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+        ).join(' ');
+      });
+    
+    // Remove duplicates (case-insensitive)
+    const uniqueCountries = [];
+    const seen = new Set();
+    for (const country of countries) {
+      const lower = country.toLowerCase();
+      if (!seen.has(lower)) {
+        seen.add(lower);
+        uniqueCountries.push(country);
+      }
+    }
+    
+    return uniqueCountries;
+  };
+
   return (
     <article className="article-card">
       <div className="article-header">
@@ -58,7 +88,11 @@ function ArticleCard({ article }) {
           </span>
           <span className="article-source">{article.source}</span>
           <span className="article-date">{formatDate(article.published_date)}</span>
-          <span className="article-country">{article.country_region || 'Global'}</span>
+          {getCountries(article.country_region).map((country, index) => (
+            <span key={index} className="article-country" title={country}>
+              {country}
+            </span>
+          ))}
         </div>
       </div>
       <h2 className="article-title">

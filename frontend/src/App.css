@@ -55,6 +55,51 @@
   font-family: 'Inter', sans-serif;
 }
 
+.article-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin: 20px 0;
+  padding: 15px 0;
+  border-bottom: 1px solid rgba(0, 255, 136, 0.2);
+}
+
+.sort-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sort-control label {
+  color: #00d970;
+  font-weight: 600;
+  font-size: 14px;
+  font-family: 'Inter', sans-serif;
+}
+
+.sort-select {
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(0, 255, 136, 0.4);
+  border-radius: 4px;
+  color: #fff;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  outline: none;
+}
+
+.sort-select:hover {
+  border-color: rgba(0, 255, 136, 0.6);
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.sort-select:focus {
+  border-color: #00d970;
+  background: rgba(0, 0, 0, 0.5);
+}
+
 @media (max-width: 768px) {
   .container {
     padding: 10px;

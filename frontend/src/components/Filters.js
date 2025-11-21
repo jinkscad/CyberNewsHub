@@ -1,7 +1,130 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './Filters.css';
 
-function Filters({ filters, sources, categories, onFilterChange }) {
+// Country flag emoji mapping
+const countryFlags = {
+  'Argentina': '🇦🇷',
+  'Australia': '🇦🇺',
+  'Austria': '🇦🇹',
+  'Bangladesh': '🇧🇩',
+  'Belgium': '🇧🇪',
+  'Bolivia': '🇧🇴',
+  'Brazil': '🇧🇷',
+  'Bulgaria': '🇧🇬',
+  'Cambodia': '🇰🇭',
+  'Canada': '🇨🇦',
+  'Chile': '🇨🇱',
+  'China': '🇨🇳',
+  'Colombia': '🇨🇴',
+  'Croatia': '🇭🇷',
+  'Cyprus': '🇨🇾',
+  'Czech Republic': '🇨🇿',
+  'Denmark': '🇩🇰',
+  'Ecuador': '🇪🇨',
+  'Egypt': '🇪🇬',
+  'Estonia': '🇪🇪',
+  'European Union': '🇪🇺',
+  'Finland': '🇫🇮',
+  'France': '🇫🇷',
+  'Germany': '🇩🇪',
+  'Greece': '🇬🇷',
+  'Hungary': '🇭🇺',
+  'India': '🇮🇳',
+  'Indonesia': '🇮🇩',
+  'Ireland': '🇮🇪',
+  'Israel': '🇮🇱',
+  'Italy': '🇮🇹',
+  'Japan': '🇯🇵',
+  'Kenya': '🇰🇪',
+  'Laos': '🇱🇦',
+  'Latvia': '🇱🇻',
+  'Lithuania': '🇱🇹',
+  'Luxembourg': '🇱🇺',
+  'Malaysia': '🇲🇾',
+  'Malta': '🇲🇹',
+  'Mexico': '🇲🇽',
+  'Morocco': '🇲🇦',
+  'Myanmar': '🇲🇲',
+  'Netherlands': '🇳🇱',
+  'New Zealand': '🇳🇿',
+  'Nigeria': '🇳🇬',
+  'Norway': '🇳🇴',
+  'Pakistan': '🇵🇰',
+  'Paraguay': '🇵🇾',
+  'Peru': '🇵🇪',
+  'Philippines': '🇵🇭',
+  'Poland': '🇵🇱',
+  'Portugal': '🇵🇹',
+  'Romania': '🇷🇴',
+  'Russia': '🇷🇺',
+  'Saudi Arabia': '🇸🇦',
+  'Singapore': '🇸🇬',
+  'Slovakia': '🇸🇰',
+  'Slovenia': '🇸🇮',
+  'South Africa': '🇿🇦',
+  'South Korea': '🇰🇷',
+  'Spain': '🇪🇸',
+  'Sri Lanka': '🇱🇰',
+  'Sweden': '🇸🇪',
+  'Switzerland': '🇨🇭',
+  'Taiwan': '🇹🇼',
+  'Thailand': '🇹🇭',
+  'Tunisia': '🇹🇳',
+  'Turkey': '🇹🇷',
+  'United Arab Emirates': '🇦🇪',
+  'United Kingdom': '🇬🇧',
+  'United States': '🇺🇸',
+  'Uruguay': '🇺🇾',
+  'Venezuela': '🇻🇪',
+  'Vietnam': '🇻🇳',
+  'Algeria': '🇩🇿',
+};
+
+function Filters({ filters, sources, categories, countries, onFilterChange }) {
+  const [showCountryDropdown, setShowCountryDropdown] = useState(false);
+  const [countrySearch, setCountrySearch] = useState('');
+  const countryDropdownRef = useRef(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (countryDropdownRef.current && !countryDropdownRef.current.contains(event.target)) {
+        setShowCountryDropdown(false);
+      }
+    };
+
+    if (showCountryDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showCountryDropdown]);
+
+  const handleCountryToggle = (country) => {
+    const currentCountries = filters.countries || [];
+    const newCountries = currentCountries.includes(country)
+      ? currentCountries.filter(c => c !== country)
+      : [...currentCountries, country];
+    onFilterChange('countries', newCountries);
+  };
+
+  const handleClearCountries = () => {
+    onFilterChange('countries', []);
+  };
+
+  const selectedCountriesCount = (filters.countries || []).length;
+
+  // Filter countries based on search
+  const filteredCountries = countries.filter(country => 
+    country.toLowerCase().includes(countrySearch.toLowerCase())
+  );
+
+  const getCountryFlag = (country) => {
+    return countryFlags[country] || '🌍';
+  };
+
   return (
     <div className="filters-container">
       <div className="filter-group">
@@ -40,9 +163,14 @@ function Filters({ filters, sources, categories, onFilterChange }) {
           className="filter-select"
         >
           <option value="">All Sources</option>
-          {sources.map(source => (
-            <option key={source} value={source}>{source}</option>
-          ))}
+          {sources.map(source => {
+            const sourceName = typeof source === 'string' ? source : source.name;
+            const sourceCountry = typeof source === 'object' && source.country ? source.country : null;
+            const displayName = sourceCountry ? `${sourceName} (${sourceCountry})` : sourceName;
+            return (
+              <option key={sourceName} value={sourceName}>{displayName}</option>
+            );
+          })}
         </select>
       </div>
       
@@ -62,7 +190,73 @@ function Filters({ filters, sources, categories, onFilterChange }) {
         </select>
       </div>
       
-      {(filters.category || filters.source || filters.search || filters.days) && (
+      <div className="filter-group filter-group-country">
+        <label htmlFor="countries">Country/Region</label>
+        <div className="country-select-wrapper" ref={countryDropdownRef}>
+          <button
+            type="button"
+            className="country-select-button"
+            onClick={() => {
+              setShowCountryDropdown(!showCountryDropdown);
+              if (!showCountryDropdown) {
+                setCountrySearch(''); // Clear search when opening
+              }
+            }}
+          >
+            {selectedCountriesCount > 0 
+              ? `${selectedCountriesCount} selected` 
+              : 'All Countries'}
+          </button>
+          {showCountryDropdown && (
+            <div className="country-dropdown">
+              <div className="country-dropdown-header">
+                <span>Select Countries</span>
+                {selectedCountriesCount > 0 && (
+                  <button
+                    type="button"
+                    className="clear-countries-btn"
+                    onClick={handleClearCountries}
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              <div className="country-search-wrapper">
+                <input
+                  type="text"
+                  className="country-search-input"
+                  placeholder="Type to search countries..."
+                  value={countrySearch}
+                  onChange={(e) => setCountrySearch(e.target.value)}
+                  onClick={(e) => e.stopPropagation()}
+                  autoFocus
+                />
+              </div>
+              <div className="country-dropdown-list">
+                {filteredCountries.length > 0 ? (
+                  filteredCountries.map(country => (
+                    <label key={country} className="country-checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={(filters.countries || []).includes(country)}
+                        onChange={() => handleCountryToggle(country)}
+                      />
+                      <span className="country-name-with-flag">
+                        <span className="country-flag">{getCountryFlag(country)}</span>
+                        <span className="country-name">{country}</span>
+                      </span>
+                    </label>
+                  ))
+                ) : (
+                  <div className="country-no-results">No countries found</div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+      
+      {(filters.category || filters.source || filters.search || filters.days || (filters.countries && filters.countries.length > 0)) && (
         <button
           className="clear-filters-btn"
           onClick={() => {
@@ -70,6 +264,7 @@ function Filters({ filters, sources, categories, onFilterChange }) {
             onFilterChange('source', '');
             onFilterChange('search', '');
             onFilterChange('days', '');
+            onFilterChange('countries', []);
           }}
         >
           Clear Filters

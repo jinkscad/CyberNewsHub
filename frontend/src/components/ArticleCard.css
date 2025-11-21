@@ -60,6 +60,9 @@
   background: rgba(90, 163, 196, 0.15);
   border-radius: 4px;
   letter-spacing: 0.3px;
+  display: inline-block;
+  white-space: nowrap;
+  text-transform: capitalize;
 }
 
 .article-title {
