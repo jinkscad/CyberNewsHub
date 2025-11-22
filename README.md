@@ -355,6 +355,32 @@ python app.py  # Database will be recreated automatically
 - Add dark mode theme toggle
 - Export articles to various formats (PDF, CSV, etc.)
 
+## Deployment (Render.com - Free)
+
+### Quick Deploy to Render
+
+1. **Create PostgreSQL Database** (required - SQLite won't persist on Render):
+   - Render Dashboard → "New +" → "PostgreSQL"
+   - Plan: Free (90 days free, then $7/month)
+   - Link this database to your backend service
+
+2. **Deploy Backend**:
+   - "New +" → "Web Service"
+   - Connect GitHub repo
+   - Build: `cd backend && python3 -m venv venv && . venv/bin/activate && pip install -r ../requirements.txt`
+   - Start: `cd backend && . venv/bin/activate && python app.py`
+   - Link the PostgreSQL database (sets `DATABASE_URL` automatically)
+   - Plan: Free
+
+3. **Deploy Frontend**:
+   - "New +" → "Static Site"
+   - Connect same repo
+   - Build: `cd frontend && npm install && npm run build`
+   - Publish: `frontend/build`
+   - Env var: `REACT_APP_API_URL` = `https://your-backend-url.onrender.com/api`
+
+**Note**: The app auto-detects PostgreSQL via `DATABASE_URL`. Without it, SQLite will lose data on every restart.
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.

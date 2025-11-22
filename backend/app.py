@@ -17,9 +17,21 @@ from apscheduler.triggers.interval import IntervalTrigger
 load_dotenv()
 
 app = Flask(__name__)
-# Use absolute path for database
-db_path = os.path.join(os.path.dirname(__file__), 'cybernews.db')
-app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
+# Database configuration: Use PostgreSQL if available (for production), otherwise SQLite (for local dev)
+# Render provides DATABASE_URL environment variable for PostgreSQL
+database_url = os.environ.get('DATABASE_URL')
+if database_url:
+    # Render provides DATABASE_URL in format: postgresql://user:pass@host:port/dbname
+    # SQLAlchemy expects postgresql:// (not postgres://)
+    if database_url.startswith('postgres://'):
+        database_url = database_url.replace('postgres://', 'postgresql://', 1)
+    app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+    print("Using PostgreSQL database (production)")
+else:
+    # Local development: use SQLite
+    db_path = os.path.join(os.path.dirname(__file__), 'cybernews.db')
+    app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
+    print(f"Using SQLite database (local): {db_path}")
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # Enable CORS for all routes and origins
 CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
@@ -1778,11 +1790,13 @@ elif not os.environ.get('WERKZEUG_RUN_MAIN'):
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8000))  # Use 8000 to avoid common port conflicts
-    print(f"Starting CyberNewsHub backend on http://127.0.0.1:{port}")
+    host = os.environ.get('HOST', '127.0.0.1')  # Use 0.0.0.0 for production (Render sets this)
+    debug = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
+    print(f"Starting CyberNewsHub backend on http://{host}:{port}")
     print(f"Automatic feed fetching: Every 12 hours")
     print(f"Manual feed fetching: Available via API endpoint")
     try:
-        app.run(debug=True, port=port, host='127.0.0.1')
+        app.run(debug=debug, port=port, host=host)
     except OSError as e:
         if "Address already in use" in str(e):
             print(f"\nERROR: Port {port} is already in use!")

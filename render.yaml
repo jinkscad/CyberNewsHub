@@ -1,0 +1,46 @@
+services:
+  # Backend Flask API
+  - type: web
+    name: cybernewshub-backend
+    env: python
+    plan: free
+    buildCommand: |
+      cd backend &&
+      python3 -m venv venv &&
+      . venv/bin/activate &&
+      pip install -r ../requirements.txt
+    startCommand: |
+      cd backend &&
+      . venv/bin/activate &&
+      python app.py
+    envVars:
+      - key: PORT
+        value: 8000
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: ARTICLE_RETENTION_DAYS
+        value: 90
+      - key: MAX_ARTICLES_PER_FEED
+        value: 20
+    healthCheckPath: /api/health
+
+  # Frontend React App
+  - type: web
+    name: cybernewshub-frontend
+    env: node
+    plan: free
+    buildCommand: |
+      cd frontend &&
+      npm install &&
+      npm run build
+    staticPublishPath: frontend/build
+    envVars:
+      - key: REACT_APP_API_URL
+        fromService:
+          type: web
+          name: cybernewshub-backend
+          property: url
+        value: /api
+      - key: NODE_VERSION
+        value: 18.x
+
