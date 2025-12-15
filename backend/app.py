@@ -1031,7 +1031,10 @@ def fetch_rss_feed(feed_config):
                 published_date = parse_date(entry.get('published', entry.get('updated', entry.get('date'))))
                 
                 # Categorize content
-                content_type = categorize_content(title, description, feed_config['name'], link)
+                # Use fast mode (keywords only) during bulk fetches for speed
+                # ML categorization can be done later via re-categorize endpoint
+                use_ml_during_fetch = os.environ.get('USE_ML_DURING_FETCH', 'false').lower() == 'true'
+                content_type = categorize_content(title, description, feed_config['name'], link, use_ml=use_ml_during_fetch)
                 
                 # Get country/region
                 country_region = get_country_region(feed_config['name'], link, title, description)

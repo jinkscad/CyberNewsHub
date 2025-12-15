@@ -6,12 +6,33 @@ Get your free API key at: https://console.groq.com
 
 import os
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 GROQ_API_KEY = os.environ.get('GROQ_API_KEY', '')
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 # Cache for efficiency
 _cache = {}
+
+# Reusable session for better performance
+_session = None
+
+def get_session():
+    """Get or create a reusable requests session with connection pooling."""
+    global _session
+    if _session is None:
+        _session = requests.Session()
+        # Configure retry strategy
+        retry_strategy = Retry(
+            total=2,
+            backoff_factor=0.3,
+            status_forcelist=[429, 500, 502, 503, 504],
+        )
+        adapter = HTTPAdapter(max_retries=retry_strategy, pool_connections=10, pool_maxsize=20)
+        _session.mount("http://", adapter)
+        _session.mount("https://", adapter)
+    return _session
 
 
 def categorize_with_groq(title, description):
@@ -44,7 +65,8 @@ Article: {text}
 Respond with ONLY the category name (News, Alert, Research, or Event), nothing else."""
 
     try:
-        response = requests.post(
+        session = get_session()
+        response = session.post(
             GROQ_API_URL,
             headers={
                 "Authorization": f"Bearer {GROQ_API_KEY}",
@@ -56,7 +78,7 @@ Respond with ONLY the category name (News, Alert, Research, or Event), nothing e
                 "temperature": 0,
                 "max_tokens": 10
             },
-            timeout=10
+            timeout=3  # Reduced from 10s to 3s for faster fallback
         )
 
         if response.status_code == 200:
