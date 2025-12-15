@@ -34,6 +34,7 @@ frontend/.env.production.local
 *.swp
 *.swo
 *~
+.claude/
 
 # OS
 .DS_Store
@@ -42,6 +43,7 @@ Thumbs.db
 # Environment
 .env
 .env.local
+DATABASE_URL.txt
 
 # Logs
 *.log

@@ -14,6 +14,18 @@ from threading import Lock
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
+# LLM-based categorization using Groq (free API)
+# Set GROQ_API_KEY environment variable to enable
+def get_llm_categorizer():
+    """Get the LLM categorizer if available."""
+    try:
+        from groq_categorizer import categorize_with_groq, is_available
+        if is_available():
+            return categorize_with_groq
+    except ImportError:
+        pass
+    return None
+
 load_dotenv()
 
 app = Flask(__name__)
@@ -577,21 +589,35 @@ def get_country_region(source_name, url, title=None, description=None):
         capitalized_countries = [capitalize_country_name(country) for country in sorted_countries]
         return ', '.join(capitalized_countries)
 
-def categorize_content(title, description, source, url=None):
+def categorize_content(title, description, source, url=None, use_ml=True):
     """
     Categorize articles based on content:
     - News: Incident reports and latest news
     - Event: Events, meetups, announcements, conference reports
     - Alert: Newsletters/advisories that call attention to specific types of attacks
     - Research: Research papers and latest research findings
+
+    Uses ML-based classification when available (more accurate), falls back to keywords.
     """
     if not title:
         return 'News'
-    
+
+    # Try LLM-based categorization first (more accurate)
+    if use_ml:
+        try:
+            categorize_fn = get_llm_categorizer()
+            if categorize_fn:
+                category, confidence = categorize_fn(title, description)
+                if category and confidence > 0.4:
+                    return category
+        except Exception as e:
+            pass  # Fall through to keyword-based
+
+    # Fallback to keyword-based categorization
     text = (title + ' ' + (description or '')).lower()
     url_lower = (url or '').lower()
     source_lower = (source or '').lower()
-    
+
     # Score-based categorization with weighted keywords
     scores = {'Event': 0, 'Research': 0, 'Alert': 0, 'News': 0}
     
@@ -1718,7 +1744,7 @@ with app.app_context():
                 db.session.rollback()
         
         # Re-categorize ALL existing articles to use the 4 allowed categories
-        # This ensures all articles are properly categorized
+        # Use keyword-based only at startup (use_ml=False) to avoid slow API calls
         if 'content_type' in columns:
             try:
                 all_articles = Article.query.all()
@@ -1726,7 +1752,8 @@ with app.app_context():
                     print(f"Re-categorizing {len(all_articles)} existing articles...")
                     updated_count = 0
                     for article in all_articles:
-                        new_category = categorize_content(article.title, article.description, article.source, article.link)
+                        # Use keywords only at startup for speed
+                        new_category = categorize_content(article.title, article.description, article.source, article.link, use_ml=False)
                         if article.content_type != new_category:
                             article.content_type = new_category
                             updated_count += 1
