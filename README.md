@@ -15,7 +15,10 @@ A modern web application that aggregates cybersecurity news from leading sources
   - Filter by time range (24 hours, 7 days, 30 days, 90 days, or all time)
   - Full-text search across titles and descriptions
 - **Smart Sorting**: Sort articles by newest first or oldest first
-- **Content Categorization**: Automatically categorizes articles as News, Research, Events, Alerts, etc.
+- **AI-Powered Content Categorization**: Automatically categorizes articles using ML/AI with three-tier approach:
+  - Groq LLM (primary) - Most accurate, uses large language model
+  - Local ML Model (fallback) - Good accuracy, runs locally without API
+  - Keyword-based (last resort) - Reliable rule-based fallback
 - **Country Detection**: Automatically detects and tags articles with their country/region
 - **Publisher Classification**: Identifies sources as Industry, Government, Vendor, or Research
 - **Beautiful UI**: Modern, responsive design with smooth animations and dark theme
@@ -85,6 +88,8 @@ The application aggregates news from **90+ sources** across four categories:
   - Feedparser 6.0+
   - APScheduler 3.10.4 (for automatic feed fetching)
   - Requests 2.31.0
+  - Transformers (for local ML categorization)
+  - PyTorch (for ML model inference)
 - **Frontend**: 
   - React
   - Axios
@@ -249,13 +254,36 @@ export ARTICLE_RETENTION_DAYS=60  # Keep only last 60 days
 
 ## Content Categorization
 
-Articles are automatically categorized into:
-- **News**: General cybersecurity news and updates
-- **Research**: Security research, analysis, and reports
-- **Event**: Security conferences, webinars, and events
-- **Alert**: Security alerts, advisories, and warnings
-- **Vulnerability**: Vulnerability disclosures and patches
-- **Uncategorized**: Articles that don't fit other categories
+Articles are automatically categorized using a three-tier ML/AI approach for maximum accuracy:
+
+### Categorization Methods (in priority order):
+
+1. **Groq LLM** (Primary - Most Accurate)
+   - Uses `llama-3.1-8b-instant` large language model via Groq API
+   - Requires `GROQ_API_KEY` environment variable
+   - Fast, accurate, and understands context
+   - Get free API key at: https://console.groq.com
+
+2. **Local ML Model** (Fallback - Good Accuracy)
+   - Uses `typeform/distilbert-base-uncased-mnli` transformer model
+   - Runs locally on your machine (no API needed)
+   - Loads automatically on first use (~1 minute download)
+   - Works offline and provides confidence scores
+
+3. **Keyword-based** (Last Resort - Reliable)
+   - Rule-based categorization using weighted keywords
+   - Always available, no dependencies
+   - Fast and reliable fallback
+
+### Categories:
+
+Articles are categorized into:
+- **News**: Incident reports, breaches, attacks, hacks, ransomware events
+- **Alert**: Security advisories, CVE disclosures, vulnerability warnings, patches
+- **Research**: Security research, technical analysis, whitepapers, studies
+- **Event**: Conferences, webinars, summits, workshops, training
+
+The system automatically tries each method in order until one succeeds, ensuring the best possible categorization accuracy.
 
 ## Country/Region Detection
 
@@ -278,7 +306,10 @@ Supports detection for:
 CyberNewsHub/
 ├── backend/
 │   ├── app.py              # Flask API server with RSS feed configuration
+│   ├── groq_categorizer.py # Groq LLM-based categorization
+│   ├── ml_categorizer.py   # Local ML model-based categorization
 │   ├── cybernews.db        # SQLite database (created automatically)
+│   ├── .env                # Environment variables (API keys, etc.) - not in git
 │   └── venv/               # Python virtual environment
 ├── frontend/
 │   ├── public/
@@ -308,6 +339,24 @@ CyberNewsHub/
 - `ARTICLE_RETENTION_DAYS`: Days to keep articles (default: 90)
 - `MAX_ARTICLES_PER_FEED`: Maximum articles to fetch per feed (default: 20)
 - `REACT_APP_API_URL`: Frontend API base URL (default: http://localhost:8000/api)
+- `GROQ_API_KEY`: Groq API key for LLM-based categorization (optional but recommended)
+  - Get free API key at: https://console.groq.com
+  - Create `backend/.env` file with: `GROQ_API_KEY=your_key_here`
+  - The `.env` file is automatically ignored by git for security
+
+### Setting Up Groq API Key (Optional but Recommended)
+
+For the most accurate categorization, set up a Groq API key:
+
+1. Get a free API key from https://console.groq.com
+2. Create a `.env` file in the `backend/` directory:
+   ```bash
+   cd backend
+   echo "GROQ_API_KEY=your_key_here" > .env
+   ```
+3. The `.env` file is already in `.gitignore` and won't be committed
+
+**Note**: The app works without the API key - it will use the local ML model and keyword-based categorization as fallbacks.
 
 ### RSS Feed Configuration
 
@@ -351,7 +400,7 @@ python app.py  # Database will be recreated automatically
 - Add email notifications for breaking news
 - Implement user accounts and personalized feeds
 - Add RSS feed export functionality
-- Enhanced article tagging and categorization
+- Enhanced article tagging and categorization (already implemented with ML/AI)
 - Add dark mode theme toggle
 - Export articles to various formats (PDF, CSV, etc.)
 
