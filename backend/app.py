@@ -26,6 +26,19 @@ def get_llm_categorizer():
         pass
     return None
 
+# ML-based categorization using local transformer model
+def get_ml_categorizer():
+    """Get the ML categorizer if available."""
+    try:
+        from ml_categorizer import categorize_with_ml
+        return categorize_with_ml
+    except ImportError:
+        pass
+    except Exception as e:
+        # Model might fail to load, that's okay
+        pass
+    return None
+
 load_dotenv()
 
 app = Flask(__name__)
@@ -598,16 +611,27 @@ def categorize_content(title, description, source, url=None, use_ml=True):
     - Research: Research papers and latest research findings
 
     Uses ML-based classification when available (more accurate), falls back to keywords.
+    Priority: Groq LLM > Local ML Model > Keyword-based
     """
     if not title:
         return 'News'
 
-    # Try LLM-based categorization first (more accurate)
+    # Try Groq LLM-based categorization first (most accurate)
     if use_ml:
         try:
             categorize_fn = get_llm_categorizer()
             if categorize_fn:
                 category, confidence = categorize_fn(title, description)
+                if category and confidence > 0.4:
+                    return category
+        except Exception as e:
+            pass  # Fall through to ML model
+
+        # Try local ML model as fallback (good accuracy, no API needed)
+        try:
+            ml_categorize_fn = get_ml_categorizer()
+            if ml_categorize_fn:
+                category, confidence = ml_categorize_fn(title, description)
                 if category and confidence > 0.4:
                     return category
         except Exception as e:
