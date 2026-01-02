@@ -165,10 +165,13 @@ function App() {
       
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
       
-      const { new_articles, total_fetched, successful_feeds, failed_feeds, failed_feed_details, old_articles_deleted, retention_days } = response.data;
-      
+      const { new_articles, total_fetched, successful_feeds, cached_feeds, failed_feeds, failed_feed_details, old_articles_deleted, retention_days } = response.data;
+
       let message = `Successfully fetched ${new_articles} new articles from ${total_fetched} total articles!\n\n`;
-      message += `${successful_feeds} feeds succeeded\n`;
+      message += `${successful_feeds} feeds with new articles\n`;
+      if (cached_feeds > 0) {
+        message += `${cached_feeds} feeds cached (no changes)\n`;
+      }
       if (failed_feeds > 0) {
         message += `${failed_feeds} feeds failed\n\n`;
         

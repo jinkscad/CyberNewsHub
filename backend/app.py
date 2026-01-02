@@ -1379,15 +1379,17 @@ def fetch_all_feeds_internal(max_workers=10, only_recent=False, recent_days=1, c
                         # Filter to only recent articles (last 24 hours)
                         cutoff_date = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
                         articles = [a for a in articles if a['published_date'] >= cutoff_date]
-                    
+
                     if articles:
-                        return {'success': True, 'feed': feed_config['name'], 'articles': articles, 'count': len(articles), 'url': feed_config['url']}
+                        return {'success': True, 'feed': feed_config['name'], 'articles': articles, 'count': len(articles), 'url': feed_config['url'], 'cached': False}
+                    elif error_message:
+                        # Actual error occurred
+                        return {'success': False, 'feed': feed_config['name'], 'articles': [], 'count': 0, 'error': error_message, 'url': feed_config['url'], 'cached': False}
                     else:
-                        # Use the error message from fetch_rss_feed, or default message
-                        error = error_message if error_message else 'No articles'
-                        return {'success': False, 'feed': feed_config['name'], 'articles': [], 'count': 0, 'error': error, 'url': feed_config['url']}
+                        # No error but no articles = cache hit (feed unchanged)
+                        return {'success': True, 'feed': feed_config['name'], 'articles': [], 'count': 0, 'url': feed_config['url'], 'cached': True}
                 except Exception as e:
-                    return {'success': False, 'feed': feed_config['name'], 'articles': [], 'count': 0, 'error': str(e)[:200], 'url': feed_config['url']}
+                    return {'success': False, 'feed': feed_config['name'], 'articles': [], 'count': 0, 'error': str(e)[:200], 'url': feed_config['url'], 'cached': False}
         
         # Use ThreadPoolExecutor for parallel fetching
         # Increase max_workers for better parallelism with more sources
@@ -1396,15 +1398,20 @@ def fetch_all_feeds_internal(max_workers=10, only_recent=False, recent_days=1, c
             future_to_feed = {executor.submit(fetch_single_feed, feed): feed for feed in all_feed_configs}
             
             failed_feed_details = []  # Track failed feeds with details
+            cached_feeds = 0  # Track cache hits
             for future in as_completed(future_to_feed):
                 result = future.result()
                 if result['success']:
-                    all_articles.extend(result['articles'])
-                    successful_feeds += 1
-                    print(f"  ✓ {result['feed']}: {result['count']} articles")
+                    if result.get('cached'):
+                        cached_feeds += 1
+                        print(f"  ○ {result['feed']}: cached (no changes)")
+                    else:
+                        all_articles.extend(result['articles'])
+                        successful_feeds += 1
+                        print(f"  ✓ {result['feed']}: {result['count']} articles")
                 else:
                     failed_feeds += 1
-                    error_msg = result.get('error', 'No articles')
+                    error_msg = result.get('error', 'Unknown error')
                     print(f"  ✗ {result['feed']}: {error_msg}")
                     failed_feed_details.append({
                         'name': result['feed'],
@@ -1440,6 +1447,7 @@ def fetch_all_feeds_internal(max_workers=10, only_recent=False, recent_days=1, c
             'total_fetched': len(all_articles),
             'new_articles': new_count,
             'successful_feeds': successful_feeds,
+            'cached_feeds': cached_feeds,
             'failed_feeds': failed_feeds,
             'failed_feed_details': failed_feed_details[:20],  # Return first 20 for frontend display
             'old_articles_deleted': deleted_count,
@@ -1548,38 +1556,13 @@ def get_publisher_types():
 
 @app.route('/api/articles/countries', methods=['GET'])
 def get_countries():
-    """Get list of all unique countries/regions"""
+    """Get list of countries that have at least one article"""
     sheets = get_sheets_client()
     db_countries = set(sheets.get_countries())
 
-    # Define all supported countries (G20, EU, NATO, and additional)
-    all_supported_countries = {
-        # G20 Countries
-        'Argentina', 'Australia', 'Brazil', 'Canada', 'China', 'France', 'Germany',
-        'India', 'Indonesia', 'Italy', 'Japan', 'Mexico', 'Russia', 'Saudi Arabia',
-        'South Africa', 'South Korea', 'Turkey', 'United Kingdom', 'United States',
-        # EU Countries
-        'European Union', 'Austria', 'Belgium', 'Bulgaria', 'Croatia', 'Cyprus',
-        'Czech Republic', 'Denmark', 'Estonia', 'Finland', 'Greece', 'Hungary',
-        'Ireland', 'Latvia', 'Lithuania', 'Luxembourg', 'Malta', 'Netherlands',
-        'Poland', 'Portugal', 'Romania', 'Slovakia', 'Slovenia', 'Spain', 'Sweden',
-        # NATO Countries (additional)
-        'Albania', 'Iceland', 'Montenegro', 'North Macedonia', 'Norway',
-        # South America
-        'Chile', 'Colombia', 'Peru', 'Venezuela', 'Uruguay', 'Paraguay', 'Bolivia', 'Ecuador',
-        # Asia-Pacific
-        'Thailand', 'Vietnam', 'Philippines', 'Malaysia', 'Taiwan', 'Singapore',
-        'Hong Kong', 'Bangladesh', 'Sri Lanka', 'Myanmar', 'Cambodia', 'Laos',
-        # Middle East & Africa
-        'Egypt', 'Nigeria', 'Kenya', 'Morocco', 'Tunisia', 'Algeria',
-        'Israel', 'United Arab Emirates',
-        # Other
-        'Pakistan', 'New Zealand', 'Switzerland', 'Ukraine'
-    }
-
-    all_countries = db_countries.union(all_supported_countries)
-    all_countries.discard('Global')
-    sorted_countries = sorted(all_countries)
+    # Only return countries that have articles (remove 'Global' as it's not a real country)
+    db_countries.discard('Global')
+    sorted_countries = sorted(db_countries)
     return jsonify({'countries': sorted_countries})
 
 @app.route('/api/stats', methods=['GET'])
