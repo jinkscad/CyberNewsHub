@@ -1,6 +1,5 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta, timezone
 import feedparser
 import requests
@@ -13,6 +12,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from threading import Lock
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
+
+# Google Sheets backend
+from sheets_client import get_sheets_client
 
 # LLM-based categorization using Groq (free API)
 # Set GROQ_API_KEY environment variable to enable
@@ -42,26 +44,11 @@ def get_ml_categorizer():
 load_dotenv()
 
 app = Flask(__name__)
-# Database configuration: Use PostgreSQL if available (for production), otherwise SQLite (for local dev)
-# Render provides DATABASE_URL environment variable for PostgreSQL
-database_url = os.environ.get('DATABASE_URL')
-if database_url:
-    # Render provides DATABASE_URL in format: postgresql://user:pass@host:port/dbname
-    # SQLAlchemy expects postgresql:// (not postgres://)
-    if database_url.startswith('postgres://'):
-        database_url = database_url.replace('postgres://', 'postgresql://', 1)
-    app.config['SQLALCHEMY_DATABASE_URI'] = database_url
-    print("Using PostgreSQL database (production)")
-else:
-    # Local development: use SQLite
-    db_path = os.path.join(os.path.dirname(__file__), 'cybernews.db')
-    app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
-    print(f"Using SQLite database (local): {db_path}")
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # Enable CORS for all routes and origins
 CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
 
-db = SQLAlchemy(app)
+# Using Google Sheets as database backend
+print("Using Google Sheets database backend")
 
 # RSS Feed Sources Configuration - Global Coverage
 # Includes sources from all continents, G20 countries, and EU countries
@@ -225,43 +212,31 @@ RSS_FEEDS = {
     ]
 }
 
-# Database Models
-class Article(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.Text, nullable=False)
-    link = db.Column(db.Text, unique=True, nullable=False)
-    description = db.Column(db.Text)
-    source = db.Column(db.String(200), nullable=False)
-    category = db.Column(db.String(50))  # Keep for backward compatibility (maps to content_type)
-    publisher_type = db.Column(db.String(50))  # Industry, Government, Vendor, Research
-    content_type = db.Column(db.String(50))  # News, Research, Event, Alert, Vulnerability, etc.
-    country_region = db.Column(db.String(200))  # Can store multiple countries: "Canada, United States", etc.
-    published_date = db.Column(db.DateTime, nullable=False)
-    fetched_date = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
-    
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'title': self.title,
-            'link': self.link,
-            'description': self.description,
-            'source': self.source,
-            'publisher_type': self.publisher_type,
-            'category': self.content_type,  # Keep 'category' for backward compatibility with frontend
-            'content_type': self.content_type,
-            'country_region': self.country_region or 'Global',
-            'published_date': (self.published_date.isoformat() + 'Z') if self.published_date else None,
-            'fetched_date': (self.fetched_date.isoformat() + 'Z') if self.fetched_date else None
-        }
+# Article helper function for formatting
+def format_article(article):
+    """Format article dict for API response"""
+    published_date = article.get('published_date', '')
+    fetched_date = article.get('fetched_date', '')
 
-class FeedCache(db.Model):
-    """Cache metadata for RSS feeds to enable HTTP caching"""
-    id = db.Column(db.Integer, primary_key=True)
-    feed_url = db.Column(db.String(500), unique=True, nullable=False)
-    etag = db.Column(db.String(200))
-    last_modified = db.Column(db.String(200))
-    last_fetched = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
-    content_hash = db.Column(db.String(64))  # SHA-256 hash of content
+    # Ensure dates end with 'Z' for ISO format
+    if published_date and not published_date.endswith('Z'):
+        published_date = published_date + 'Z' if 'T' in published_date else published_date
+    if fetched_date and not fetched_date.endswith('Z'):
+        fetched_date = fetched_date + 'Z' if 'T' in fetched_date else fetched_date
+
+    return {
+        'id': article.get('id'),
+        'title': article.get('title', ''),
+        'link': article.get('link', ''),
+        'description': article.get('description', ''),
+        'source': article.get('source', ''),
+        'publisher_type': article.get('publisher_type', ''),
+        'category': article.get('content_type', 'News'),  # Keep 'category' for backward compatibility
+        'content_type': article.get('content_type', 'News'),
+        'country_region': article.get('country_region') or 'Global',
+        'published_date': published_date,
+        'fetched_date': fetched_date
+    }
 
 def clean_html(text):
     """Remove HTML tags from text"""
@@ -850,20 +825,19 @@ def fetch_rss_feed(feed_config):
         # Set user agent to avoid being blocked (more realistic user agent)
         feedparser.USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         
-        # Get cached metadata for this feed (safely handle if table doesn't exist yet)
-        # Use application context for database operations (needed for ThreadPoolExecutor)
+        # Get cached metadata for this feed from Google Sheets
         cache_etag = None
         cache_last_modified = None
         cache_content_hash = None
         try:
-            with app.app_context():
-                cache = FeedCache.query.filter_by(feed_url=feed_config['url']).first()
-                if cache:
-                    cache_etag = cache.etag
-                    cache_last_modified = cache.last_modified
-                    cache_content_hash = cache.content_hash
+            sheets = get_sheets_client()
+            cache = sheets.get_feed_cache(feed_config['url'])
+            if cache:
+                cache_etag = cache.get('etag')
+                cache_last_modified = cache.get('last_modified')
+                cache_content_hash = cache.get('content_hash')
         except Exception:
-            # FeedCache table might not exist yet, continue without caching
+            # Continue without caching if Sheets API fails
             pass
         
         # Prepare headers with caching support (more realistic headers)
@@ -920,55 +894,35 @@ def fetch_rss_feed(feed_config):
             if cache_content_hash and cache_content_hash == content_hash:
                 # Content hash matches, no new articles
                 print(f"  {feed_config['name']}: No changes (content hash match)")
-                # Update last_fetched timestamp (safely)
+                # Update last_fetched timestamp
                 try:
-                    with app.app_context():
-                        cache = FeedCache.query.filter_by(feed_url=feed_config['url']).first()
-                        if cache:
-                            cache.last_fetched = datetime.now(timezone.utc).replace(tzinfo=None)
-                            db.session.commit()
+                    sheets = get_sheets_client()
+                    sheets.update_feed_cache(
+                        feed_url=feed_config['url'],
+                        etag=cache_etag,
+                        last_modified=cache_last_modified,
+                        content_hash=cache_content_hash
+                    )
                 except Exception:
-                    with app.app_context():
-                        db.session.rollback()
+                    pass
                 return articles, None
             
             # Parse feed
             feed = feedparser.parse(response.content)
             
-            # Update cache metadata (safely handle if table doesn't exist)
-            # Use application context for database operations
+            # Update cache metadata in Google Sheets
             try:
-                with app.app_context():
-                    etag = response.headers.get('ETag')
-                    last_modified = response.headers.get('Last-Modified')
-                    
-                    # Re-query cache in this context to avoid cross-context issues
-                    cache = FeedCache.query.filter_by(feed_url=feed_config['url']).first()
-                    if cache:
-                        if etag:
-                            cache.etag = etag
-                        if last_modified:
-                            cache.last_modified = last_modified
-                        cache.content_hash = content_hash
-                        cache.last_fetched = datetime.now(timezone.utc).replace(tzinfo=None)
-                    else:
-                        cache = FeedCache(
-                            feed_url=feed_config['url'],
-                            etag=etag,
-                            last_modified=last_modified,
-                            content_hash=content_hash,
-                            last_fetched=datetime.now(timezone.utc).replace(tzinfo=None)
-                        )
-                        db.session.add(cache)
-                    
-                    db.session.commit()
-            except Exception as e:
-                # If FeedCache table doesn't exist or other DB error, just continue without caching
-                try:
-                    with app.app_context():
-                        db.session.rollback()
-                except:
-                    pass
+                etag = response.headers.get('ETag')
+                last_modified = response.headers.get('Last-Modified')
+                sheets = get_sheets_client()
+                sheets.update_feed_cache(
+                    feed_url=feed_config['url'],
+                    etag=etag,
+                    last_modified=last_modified,
+                    content_hash=content_hash
+                )
+            except Exception:
+                # Continue without caching if update fails
                 pass
             
         except requests.Timeout as e:
@@ -1047,7 +1001,7 @@ def fetch_rss_feed(feed_config):
                     'publisher_type': feed_config['category'],  # Industry, Government, Vendor, Research
                     'content_type': content_type,  # News, Research, Event, Alert, etc.
                     'country_region': country_region,
-                    'published_date': published_date
+                    'published_date': published_date.isoformat() if published_date else datetime.now(timezone.utc).isoformat()
                 })
             except Exception as e:
                 print(f"Error processing entry from {feed_config['name']}: {e}")
@@ -1111,8 +1065,7 @@ def fetch_all_feeds_internal(max_workers=10, only_recent=False, recent_days=1):
                     articles, error_message = fetch_rss_feed(feed_config)
                     if only_recent:
                         # Filter to only recent articles (last 24 hours)
-                        # Use timezone-naive UTC datetime for comparison
-                        cutoff_date = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=24)
+                        cutoff_date = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
                         articles = [a for a in articles if a['published_date'] >= cutoff_date]
                     
                     if articles:
@@ -1147,36 +1100,20 @@ def fetch_all_feeds_internal(max_workers=10, only_recent=False, recent_days=1):
                         'error': error_msg
                     })
         
-        # Batch database operations for better performance
+        # Batch add articles to Google Sheets
         print(f"\nProcessing {len(all_articles)} articles...")
-        
-        # Get all existing links in one query (much faster than individual checks)
-        with app.app_context():
-            existing_links = set(
-                db.session.query(Article.link)
-                .filter(Article.link.in_([a['link'] for a in all_articles]))
-                .all()
-            )
-            existing_links = {link[0] for link in existing_links}
-            
-            # Add only new articles
-            new_articles = []
-            for article_data in all_articles:
-                if article_data['link'] not in existing_links:
-                    new_articles.append(Article(**article_data))
-                    existing_links.add(article_data['link'])  # Prevent duplicates in same batch
-            
-            # Batch insert
-            db.session.add_all(new_articles)
-            db.session.commit()
-            new_count = len(new_articles)
-            
-            # Clean up old articles (keep only last 90 days by default)
-            # This prevents the database from growing indefinitely
-            retention_days = int(os.environ.get('ARTICLE_RETENTION_DAYS', 90))
-            cutoff_date = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=retention_days)
-            deleted_count = Article.query.filter(Article.published_date < cutoff_date).delete()
-            db.session.commit()
+
+        sheets = get_sheets_client()
+        result = sheets.add_articles(all_articles)
+        new_count = result.get('added', 0)
+        deleted_for_capacity = result.get('deleted_for_capacity', 0)
+        if deleted_for_capacity > 0:
+            print(f"  Capacity limit reached: deleted {deleted_for_capacity} oldest articles (max: {result.get('max_articles', 5000)})")
+
+        # Clean up old articles (keep only last 90 days by default)
+        retention_days = int(os.environ.get('ARTICLE_RETENTION_DAYS', 90))
+        cleanup_result = sheets.cleanup_old_articles(retention_days)
+        deleted_count = cleanup_result.get('deleted', 0)
         
         # Print summary of failed feeds (first 10) for debugging
         if failed_feed_details:
@@ -1194,11 +1131,11 @@ def fetch_all_feeds_internal(max_workers=10, only_recent=False, recent_days=1):
             'failed_feeds': failed_feeds,
             'failed_feed_details': failed_feed_details[:20],  # Return first 20 for frontend display
             'old_articles_deleted': deleted_count,
+            'deleted_for_capacity': deleted_for_capacity,
+            'max_articles': 5000,
             'retention_days': retention_days
         }
     except Exception as e:
-        with app.app_context():
-            db.session.rollback()
         print(f"Error in fetch_all_feeds_internal: {e}")
         return {
             'status': 'error',
@@ -1233,331 +1170,107 @@ def get_articles():
     """Get articles with filtering and pagination"""
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 50, type=int)
-    category = request.args.get('category', None)  # Content type (News, Research, etc.)
-    publisher_type = request.args.get('publisher_type', None)  # Publisher type (Industry, Government, etc.)
+    category = request.args.get('category', None)
+    publisher_type = request.args.get('publisher_type', None)
     source = request.args.get('source', None)
     search = request.args.get('search', None)
     days = request.args.get('days', None, type=int)
-    countries = request.args.get('countries', None)  # Comma-separated list of countries
-    sort_by = request.args.get('sort_by', 'newest')  # Sort order: 'newest', 'oldest', 'relevance'
-    
-    query = Article.query
-    
-    # Apply filters
-    if category:
-        query = query.filter(Article.content_type == category)
-    if publisher_type:
-        query = query.filter(Article.publisher_type == publisher_type)
-    if source:
-        query = query.filter(Article.source == source)
-    if search:
-        search_term = f"%{search}%"
-        query = query.filter(
-            db.or_(
-                Article.title.like(search_term),
-                Article.description.like(search_term)
-            )
-        )
-    if days:
-        cutoff_date = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days)
-        query = query.filter(Article.published_date >= cutoff_date)
-    
-    # Country filter (multi-select, comma-separated)
-    if countries:
-        country_list = [c.strip() for c in countries.split(',') if c.strip()]
-        if country_list:
-            # Match articles where country_region contains any of the selected countries
-            # Since country_region can be comma-separated, we need to check if any country matches
-            country_filters = []
-            for country in country_list:
-                # Match exact country or country in comma-separated list
-                country_filters.append(
-                    db.or_(
-                        Article.country_region == country,
-                        Article.country_region.like(f'%{country}%')
-                    )
-                )
-            if country_filters:
-                query = query.filter(db.or_(*country_filters))
-    
-    # Filter out articles with future dates (likely timezone/parsing errors)
-    # Only show articles published up to 24 hours in the future (to account for timezone differences and scheduling)
-    now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
-    max_future_date = now_utc + timedelta(hours=24)
-    query = query.filter(Article.published_date <= max_future_date)
-    
-    # Apply sorting
-    if sort_by == 'oldest':
-        # Oldest first
-        query = query.order_by(Article.published_date.asc(), Article.fetched_date.asc())
-    elif sort_by == 'relevance':
-        # Relevance: prioritize recent articles but also consider fetched_date
-        # This gives a mix but still favors newer content
-        query = query.order_by(Article.published_date.desc(), Article.fetched_date.desc())
-    else:
-        # Default: newest first (newest to oldest)
-        query = query.order_by(Article.published_date.desc(), Article.fetched_date.desc())
-    
-    # Paginate
-    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
-    articles = [article.to_dict() for article in pagination.items]
-    
+    countries = request.args.get('countries', None)
+    sort_by = request.args.get('sort_by', 'newest')
+
+    sheets = get_sheets_client()
+    result = sheets.get_articles(
+        page=page,
+        per_page=per_page,
+        category=category,
+        publisher_type=publisher_type,
+        source=source,
+        search=search,
+        days=days,
+        countries=countries,
+        sort=sort_by
+    )
+
+    # Format articles for response
+    articles = [format_article(a) for a in result.get('articles', [])]
+
     return jsonify({
         'articles': articles,
-        'total': pagination.total,
-        'page': page,
-        'per_page': per_page,
-        'pages': pagination.pages
+        'total': result.get('total', 0),
+        'page': result.get('page', page),
+        'per_page': result.get('per_page', per_page),
+        'pages': result.get('pages', 0)
     })
 
 @app.route('/api/articles/sources', methods=['GET'])
 def get_sources():
-    """Get list of all sources with their primary country"""
-    from collections import Counter
-    
-    # Get all sources with their country_region
-    source_countries = db.session.query(
-        Article.source,
-        Article.country_region
-    ).filter(Article.country_region.isnot(None)).all()
-    
-    # Group by source and find the most common country for each
-    source_country_map = {}
-    for source, country_region in source_countries:
-        if not country_region or country_region == 'Global':
-            continue
-        
-        # Handle comma-separated countries - take the first one as primary
-        primary_country = country_region.split(',')[0].strip()
-        
-        if source not in source_country_map:
-            source_country_map[source] = []
-        source_country_map[source].append(primary_country)
-    
-    # Get all distinct sources
-    all_sources = db.session.query(Article.source).distinct().all()
-    sources_list = []
-    
-    for source_tuple in all_sources:
-        source = source_tuple[0]
-        # Find most common country for this source
-        if source in source_country_map:
-            country_counter = Counter(source_country_map[source])
-            primary_country = country_counter.most_common(1)[0][0]
-        else:
-            primary_country = None
-        
-        sources_list.append({
-            'name': source,
-            'country': primary_country
-        })
-    
-    # Sort by source name
+    """Get list of all sources"""
+    sheets = get_sheets_client()
+    sources = sheets.get_sources()
+    # Return simple list format
+    sources_list = [{'name': s, 'country': None} for s in sources]
     sources_list.sort(key=lambda x: x['name'])
-    
     return jsonify({'sources': sources_list})
 
 @app.route('/api/articles/categories', methods=['GET'])
 def get_categories():
     """Get list of all content type categories"""
-    categories = db.session.query(Article.content_type).distinct().all()
-    return jsonify({'categories': [c[0] for c in categories if c[0]]})
+    sheets = get_sheets_client()
+    categories = sheets.get_categories()
+    return jsonify({'categories': categories})
 
 @app.route('/api/articles/publisher-types', methods=['GET'])
 def get_publisher_types():
     """Get list of all publisher types"""
-    publisher_types = db.session.query(Article.publisher_type).distinct().all()
-    return jsonify({'publisher_types': [pt[0] for pt in publisher_types if pt[0]]})
+    sheets = get_sheets_client()
+    publisher_types = sheets.get_publisher_types()
+    return jsonify({'publisher_types': publisher_types})
 
 @app.route('/api/articles/countries', methods=['GET'])
 def get_countries():
     """Get list of all unique countries/regions"""
-    # Get all country_region values from database
-    country_regions = db.session.query(Article.country_region).distinct().all()
-    
-    # Extract all unique countries from database (handle comma-separated values)
-    db_countries = set()
-    for cr in country_regions:
-        if cr[0]:
-            # Split comma-separated countries and add each one
-            countries = [c.strip() for c in cr[0].split(',')]
-            db_countries.update(countries)
-    
-    # Define all supported countries (from TLD mapping and country patterns)
-    # This ensures all countries appear in dropdown even if they have no articles yet
+    sheets = get_sheets_client()
+    db_countries = set(sheets.get_countries())
+
+    # Define all supported countries
     all_supported_countries = {
-        # G20 Countries
         'Argentina', 'Australia', 'Brazil', 'Canada', 'China', 'France', 'Germany',
         'India', 'Indonesia', 'Italy', 'Japan', 'Mexico', 'Russia', 'Saudi Arabia',
         'South Africa', 'South Korea', 'Turkey', 'United Kingdom', 'United States',
-        'European Union',
-        # EU Countries (all 27)
-        'Austria', 'Belgium', 'Bulgaria', 'Croatia', 'Cyprus', 'Czech Republic',
-        'Denmark', 'Estonia', 'Finland', 'France', 'Germany', 'Greece', 'Hungary',
-        'Ireland', 'Italy', 'Latvia', 'Lithuania', 'Luxembourg', 'Malta',
-        'Netherlands', 'Poland', 'Portugal', 'Romania', 'Slovakia', 'Slovenia',
-        'Spain', 'Sweden',
-        # Other major countries
-        'Chile', 'Colombia', 'Peru', 'Venezuela', 'Uruguay', 'Paraguay', 'Bolivia', 'Ecuador',
-        'Thailand', 'Vietnam', 'Philippines', 'Malaysia', 'Taiwan', 'Singapore',
-        'Egypt', 'Nigeria', 'Kenya', 'Morocco', 'Tunisia', 'Algeria',
+        'European Union', 'Austria', 'Belgium', 'Bulgaria', 'Croatia', 'Cyprus',
+        'Czech Republic', 'Denmark', 'Estonia', 'Finland', 'Greece', 'Hungary',
+        'Ireland', 'Latvia', 'Lithuania', 'Luxembourg', 'Malta', 'Netherlands',
+        'Poland', 'Portugal', 'Romania', 'Slovakia', 'Slovenia', 'Spain', 'Sweden',
+        'Chile', 'Colombia', 'Peru', 'Venezuela', 'Uruguay', 'Paraguay', 'Bolivia',
+        'Ecuador', 'Thailand', 'Vietnam', 'Philippines', 'Malaysia', 'Taiwan',
+        'Singapore', 'Egypt', 'Nigeria', 'Kenya', 'Morocco', 'Tunisia', 'Algeria',
         'Pakistan', 'Bangladesh', 'Sri Lanka', 'Myanmar', 'Cambodia', 'Laos',
         'Israel', 'United Arab Emirates', 'New Zealand', 'Switzerland', 'Norway'
     }
-    
-    # Combine database countries with all supported countries
+
     all_countries = db_countries.union(all_supported_countries)
-    
-    # Remove 'Global' if present
     all_countries.discard('Global')
-    
-    # Sort and return
     sorted_countries = sorted(all_countries)
     return jsonify({'countries': sorted_countries})
 
 @app.route('/api/stats', methods=['GET'])
 def get_stats():
-    """Get statistics about articles with optional filters"""
-    # Get filter parameters (same as get_articles)
-    category = request.args.get('category', None)  # Content type (News, Research, etc.)
-    publisher_type = request.args.get('publisher_type', None)  # Publisher type (Industry, Government, etc.)
-    source = request.args.get('source', None)
-    search = request.args.get('search', None)
+    """Get statistics about articles"""
     days = request.args.get('days', None, type=int)
-    countries = request.args.get('countries', None)  # Comma-separated list of countries
-    
-    # Build query with same filters as get_articles
-    query = Article.query
-    
-    # Apply filters
-    if category:
-        query = query.filter(Article.content_type == category)
-    if publisher_type:
-        query = query.filter(Article.publisher_type == publisher_type)
-    if source:
-        query = query.filter(Article.source == source)
-    if search:
-        search_term = f"%{search}%"
-        query = query.filter(
-            db.or_(
-                Article.title.like(search_term),
-                Article.description.like(search_term)
-            )
-        )
-    if days:
-        cutoff_date = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days)
-        query = query.filter(Article.published_date >= cutoff_date)
-    
-    # Country filter (multi-select, comma-separated)
-    if countries:
-        country_list = [c.strip() for c in countries.split(',') if c.strip()]
-        if country_list:
-            # Match articles where country_region contains any of the selected countries
-            country_filters = []
-            for country in country_list:
-                country_filters.append(
-                    db.or_(
-                        Article.country_region == country,
-                        Article.country_region.like(f'%{country}%')
-                    )
-                )
-            if country_filters:
-                query = query.filter(db.or_(*country_filters))
-    
-    # Filter out articles with future dates (same as get_articles)
-    now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
-    max_future_date = now_utc + timedelta(hours=1)
-    query = query.filter(Article.published_date <= max_future_date)
-    
-    # Get filtered counts
-    total = query.count()
-    
-    # Recent articles (last 24 hours) with filters applied
-    recent_query = query.filter(
-        Article.published_date >= datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=24)
-    )
-    recent = recent_query.count()
-    
-    # Get breakdowns (only if no search filter, as search makes grouping less meaningful)
-    by_publisher_type = {}
-    by_content_type = {}
-    
-    if not search:  # Only show breakdowns when not searching
-        # Use the same filtered query for breakdowns
-        by_publisher_type_result = db.session.query(
-            Article.publisher_type,
-            db.func.count(Article.id)
-        )
-        # Apply same filters to breakdown query
-        if category:
-            by_publisher_type_result = by_publisher_type_result.filter(Article.content_type == category)
-        if publisher_type:
-            by_publisher_type_result = by_publisher_type_result.filter(Article.publisher_type == publisher_type)
-        if source:
-            by_publisher_type_result = by_publisher_type_result.filter(Article.source == source)
-        if days:
-            cutoff_date = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days)
-            by_publisher_type_result = by_publisher_type_result.filter(Article.published_date >= cutoff_date)
-        if countries:
-            country_list = [c.strip() for c in countries.split(',') if c.strip()]
-            if country_list:
-                country_filters = []
-                for country in country_list:
-                    country_filters.append(
-                        db.or_(
-                            Article.country_region == country,
-                            Article.country_region.like(f'%{country}%')
-                        )
-                    )
-                if country_filters:
-                    by_publisher_type_result = by_publisher_type_result.filter(db.or_(*country_filters))
-        by_publisher_type_result = by_publisher_type_result.filter(Article.published_date <= max_future_date)
-        by_publisher_type_result = by_publisher_type_result.group_by(Article.publisher_type).all()
-        by_publisher_type = {pt: count for pt, count in by_publisher_type_result if pt}
-        
-        by_content_type_result = db.session.query(
-            Article.content_type,
-            db.func.count(Article.id)
-        )
-        # Apply same filters to breakdown query
-        if category:
-            by_content_type_result = by_content_type_result.filter(Article.content_type == category)
-        if publisher_type:
-            by_content_type_result = by_content_type_result.filter(Article.publisher_type == publisher_type)
-        if source:
-            by_content_type_result = by_content_type_result.filter(Article.source == source)
-        if days:
-            cutoff_date = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days)
-            by_content_type_result = by_content_type_result.filter(Article.published_date >= cutoff_date)
-        if countries:
-            country_list = [c.strip() for c in countries.split(',') if c.strip()]
-            if country_list:
-                country_filters = []
-                for country in country_list:
-                    country_filters.append(
-                        db.or_(
-                            Article.country_region == country,
-                            Article.country_region.like(f'%{country}%')
-                        )
-                    )
-                if country_filters:
-                    by_content_type_result = by_content_type_result.filter(db.or_(*country_filters))
-        by_content_type_result = by_content_type_result.filter(Article.published_date <= max_future_date)
-        by_content_type_result = by_content_type_result.group_by(Article.content_type).all()
-        by_content_type = {ct: count for ct, count in by_content_type_result if ct}
-    
-    # Get database size info (unfiltered)
+
+    sheets = get_sheets_client()
+    stats = sheets.get_stats(days=days)
+
     retention_days = int(os.environ.get('ARTICLE_RETENTION_DAYS', 90))
-    oldest_article = Article.query.order_by(Article.published_date.asc()).first()
-    oldest_date = oldest_article.published_date if oldest_article else None
-    
+
     return jsonify({
-        'total_articles': total,
-        'recent_articles_24h': recent,
-        'by_publisher_type': by_publisher_type,
-        'by_content_type': by_content_type,
+        'total_articles': stats.get('total_articles', 0),
+        'recent_articles_24h': stats.get('recent_articles_24h', 0),
+        'by_publisher_type': stats.get('by_publisher_type', {}),
+        'by_content_type': stats.get('by_content_type', {}),
         'retention_days': retention_days,
-        'oldest_article_date': oldest_date.isoformat() if oldest_date else None
+        'max_articles': 5000,
+        'oldest_article_date': stats.get('oldest_article_date')
     })
 
 @app.route('/api/cleanup', methods=['POST'])
@@ -1565,13 +1278,12 @@ def cleanup_old_articles():
     """Manually clean up old articles"""
     try:
         retention_days = request.json.get('days', 90) if request.json else 90
-        cutoff_date = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=retention_days)
-        deleted_count = Article.query.filter(Article.published_date < cutoff_date).delete()
-        db.session.commit()
-        
+        sheets = get_sheets_client()
+        result = sheets.cleanup_old_articles(retention_days)
+
         return jsonify({
             'status': 'success',
-            'deleted_count': deleted_count,
+            'deleted_count': result.get('deleted', 0),
             'retention_days': retention_days
         })
     except Exception as e:
@@ -1582,58 +1294,15 @@ def cleanup_old_articles():
 
 @app.route('/api/articles/re-categorize', methods=['POST'])
 def re_categorize_all():
-    """Re-categorize all articles based on current categorization rules"""
-    try:
-        all_articles = Article.query.all()
-        category_updated = 0
-        region_updated = 0
-        
-        # Map of abbreviations to full names
-        abbreviation_map = {
-            'CA': 'Canada',
-            'US': 'United States',
-            'UK': 'United Kingdom',
-            'EU': 'European Union',
-            'SG': 'Singapore',
-            'RU': 'Russia',
-            'IL': 'Israel'
-        }
-        
-        for article in all_articles:
-            # Update content type
-            new_category = categorize_content(article.title, article.description, article.source, article.link)
-            if article.content_type != new_category:
-                article.content_type = new_category
-                category_updated += 1
-            
-            # Update country/region (convert abbreviations to full names)
-            new_region = get_country_region(article.source, article.link, article.title, article.description)
-            # Also check if it's an abbreviation that needs conversion
-            if article.country_region in abbreviation_map:
-                new_region = abbreviation_map[article.country_region]
-            
-            if article.country_region != new_region:
-                article.country_region = new_region
-                region_updated += 1
-        
-        db.session.commit()
-        
-        return jsonify({
-            'status': 'success',
-            'total_articles': len(all_articles),
-            'categories_updated': category_updated,
-            'regions_updated': region_updated
-        })
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({
-            'status': 'error',
-            'message': str(e)
-        }), 500
+    """Re-categorize all articles (not supported with Google Sheets backend)"""
+    return jsonify({
+        'status': 'info',
+        'message': 'Re-categorization is not supported with Google Sheets backend. Articles are categorized when fetched.'
+    })
 
 @app.route('/api/articles/delete-by-source', methods=['POST'])
 def delete_articles_by_source():
-    """Delete articles from a specific source (useful for removing unwanted sources)"""
+    """Delete articles from a specific source"""
     try:
         source_name = request.json.get('source') if request.json else None
         if not source_name:
@@ -1641,166 +1310,30 @@ def delete_articles_by_source():
                 'status': 'error',
                 'message': 'Source name is required'
             }), 400
-        
-        deleted_count = Article.query.filter_by(source=source_name).delete()
-        db.session.commit()
-        
+
+        sheets = get_sheets_client()
+        result = sheets.delete_by_source(source_name)
+
         return jsonify({
             'status': 'success',
             'source': source_name,
-            'deleted_count': deleted_count
+            'deleted_count': result.get('deleted', 0)
         })
     except Exception as e:
-        db.session.rollback()
         return jsonify({
             'status': 'error',
             'message': str(e)
         }), 500
 
-# Initialize database
-with app.app_context():
-    db.create_all()
-    
-    # Migration: Add new columns if they don't exist
-    try:
-        from sqlalchemy import inspect, text
-        inspector = inspect(db.engine)
-        columns = [col['name'] for col in inspector.get_columns('article')]
-        
-        # Add publisher_type column if it doesn't exist
-        if 'publisher_type' not in columns:
-            print("Migrating: Adding publisher_type column...")
-            db.session.execute(text('ALTER TABLE article ADD COLUMN publisher_type VARCHAR(50)'))
-            # Migrate existing category data to publisher_type if category column exists
-            if 'category' in columns:
-                db.session.execute(text('UPDATE article SET publisher_type = category WHERE category IS NOT NULL'))
-            db.session.commit()
-            print("Migration complete: publisher_type added")
-        
-        # Add content_type column if it doesn't exist
-        if 'content_type' not in columns:
-            print("Migrating: Adding content_type column...")
-            db.session.execute(text('ALTER TABLE article ADD COLUMN content_type VARCHAR(50)'))
-            # Set default content_type for existing articles
-            db.session.execute(text("UPDATE article SET content_type = 'News' WHERE content_type IS NULL"))
-            db.session.commit()
-            print("Migration complete: content_type added")
-        
-        # Add country_region column if it doesn't exist
-        if 'country_region' not in columns:
-            print("Migrating: Adding country_region column...")
-            db.session.execute(text('ALTER TABLE article ADD COLUMN country_region VARCHAR(200)'))
-            # Set default country_region for existing articles
-            db.session.execute(text("UPDATE article SET country_region = 'Global' WHERE country_region IS NULL"))
-            db.session.commit()
-            print("Migration complete: country_region added")
-            
-            # Re-categorize existing articles to get country_region (convert abbreviations to full names)
-            try:
-                all_articles = Article.query.all()
-                if all_articles:
-                    print(f"Setting country_region for {len(all_articles)} existing articles...")
-                    updated_count = 0
-                    for article in all_articles:
-                        new_region = get_country_region(article.source, article.link, article.title, article.description)
-                        if article.country_region != new_region:
-                            article.country_region = new_region
-                            updated_count += 1
-                    db.session.commit()
-                    print(f"Updated country_region for {updated_count} articles")
-            except Exception as e:
-                print(f"Note: Could not set country_region for existing articles: {e}")
-                db.session.rollback()
-        
-        # Update country_region column size if it's too small (for existing databases)
-        # Note: SQLite doesn't support ALTER COLUMN, but VARCHAR in SQLite is flexible
-        # We'll just ensure new data uses the larger size. Existing data will work fine.
-        if 'country_region' in columns:
-            try:
-                # Re-run country detection on all articles to get multi-country support
-                all_articles = Article.query.all()
-                if all_articles:
-                    print(f"Updating country_region with enhanced detection for {len(all_articles)} articles...")
-                    updated_count = 0
-                    for article in all_articles:
-                        new_region = get_country_region(article.source, article.link, article.title, article.description)
-                        if article.country_region != new_region:
-                            article.country_region = new_region
-                            updated_count += 1
-                    db.session.commit()
-                    if updated_count > 0:
-                        print(f"Updated country_region for {updated_count} articles with multi-country support")
-            except Exception as e:
-                print(f"Note: Could not update country_region with enhanced detection: {e}")
-                db.session.rollback()
-        
-        # Also update any existing articles with abbreviations to full names
-        if 'country_region' in columns:
-            try:
-                # Map of abbreviations to full names
-                abbreviation_map = {
-                    'CA': 'Canada',
-                    'US': 'United States',
-                    'UK': 'United Kingdom',
-                    'EU': 'European Union',
-                    'SG': 'Singapore',
-                    'RU': 'Russia',
-                    'IL': 'Israel'
-                }
-                
-                for abbrev, full_name in abbreviation_map.items():
-                    updated = Article.query.filter_by(country_region=abbrev).update({'country_region': full_name})
-                    if updated > 0:
-                        print(f"  Updated {updated} articles from '{abbrev}' to '{full_name}'")
-                
-                db.session.commit()
-            except Exception as e:
-                print(f"Note: Could not update abbreviations: {e}")
-                db.session.rollback()
-        
-        # Update country_region with enhanced multi-country detection (run once on startup)
-        # This will add content-based detection and TLD detection to existing articles
-        if 'country_region' in columns:
-            try:
-                # Only run this migration once - check if we have any single-country entries that could benefit
-                # We'll skip this on every startup to avoid performance issues
-                # Instead, users can use the re-categorize button to update countries
-                pass  # Migration handled by re-categorize endpoint
-            except Exception as e:
-                print(f"Note: Could not update country_region with enhanced detection: {e}")
-                db.session.rollback()
-        
-        # Re-categorize ALL existing articles to use the 4 allowed categories
-        # Use keyword-based only at startup (use_ml=False) to avoid slow API calls
-        if 'content_type' in columns:
-            try:
-                all_articles = Article.query.all()
-                if all_articles:
-                    print(f"Re-categorizing {len(all_articles)} existing articles...")
-                    updated_count = 0
-                    for article in all_articles:
-                        # Use keywords only at startup for speed
-                        new_category = categorize_content(article.title, article.description, article.source, article.link, use_ml=False)
-                        if article.content_type != new_category:
-                            article.content_type = new_category
-                            updated_count += 1
-                    db.session.commit()
-                    print(f"Re-categorized {updated_count} articles")
-            except Exception as e:
-                print(f"Note: Could not re-categorize existing articles: {e}")
-                db.session.rollback()
-        
-        # Keep old category column for backward compatibility if it exists
-        # We'll populate it from content_type for frontend compatibility
-        if 'category' in columns and 'content_type' in columns:
-            db.session.execute(text("UPDATE article SET category = content_type WHERE category IS NULL OR category = ''"))
-            db.session.commit()
-        
-        # Rename old category column if it still exists (keep for backward compatibility)
-        # We'll keep both for now to avoid breaking existing code
-    except Exception as e:
-        print(f"Migration note: {e}")
-        # If migration fails, it's okay - might be first run
+# Google Sheets backend - no database initialization needed
+# Test connection on startup
+try:
+    sheets = get_sheets_client()
+    health = sheets.health_check()
+    print(f"✓ Google Sheets backend connected: {health.get('status', 'unknown')}")
+except Exception as e:
+    print(f"Warning: Could not connect to Google Sheets backend: {e}")
+    print("  Make sure SHEETS_API_URL is set correctly.")
 
 # Initialize scheduler for automatic feed fetching
 scheduler = None
