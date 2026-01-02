@@ -6,6 +6,7 @@ import Filters from './components/Filters';
 import ArticleList from './components/ArticleList';
 import Stats from './components/Stats';
 import LoadingSpinner from './components/LoadingSpinner';
+import FetchSettingsModal from './components/FetchSettingsModal';
 
 const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
 
@@ -28,6 +29,8 @@ function App() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [fastMode, setFastMode] = useState(false);
+  const [fetchSettingsOpen, setFetchSettingsOpen] = useState(false);
+  const [sourceCountries, setSourceCountries] = useState({});
   
   // Check if any filters are active
   const hasActiveFilters = filters.category || filters.source || filters.search || filters.days || (filters.countries && filters.countries.length > 0);
@@ -38,7 +41,17 @@ function App() {
     loadCountries();
     loadStats();
     loadArticles();
+    loadSourceCountries();
   }, [filters, page]);
+
+  const loadSourceCountries = async () => {
+    try {
+      const response = await axios.get(`${API_BASE}/feeds/sources-by-country`);
+      setSourceCountries(response.data.countries || {});
+    } catch (error) {
+      console.error('Error loading source countries:', error);
+    }
+  };
 
   const loadArticles = async () => {
     setLoading(true);
@@ -132,16 +145,22 @@ function App() {
     }
   };
 
-  const handleFetchFeeds = async () => {
+  const handleFetchFeeds = async (selectedCountries = null) => {
     setFetching(true);
+    setFetchSettingsOpen(false); // Close modal when fetching starts
     try {
       const startTime = Date.now();
-      const response = await axios.post(`${API_BASE}/feeds/fetch`, {
+      const requestBody = {
         only_recent: fastMode,
         recent_days: 1, // 1 day = 24 hours
         max_workers: 10
-      }, {
-        timeout: fastMode ? 60000 : 120000 // 1 min for fast mode, 2 min for full
+      };
+      // Add countries filter if specified
+      if (selectedCountries && selectedCountries.length > 0) {
+        requestBody.countries = selectedCountries;
+      }
+      const response = await axios.post(`${API_BASE}/feeds/fetch`, requestBody, {
+        timeout: fastMode ? 60000 : 180000 // 1 min for fast mode, 3 min for full
       });
       
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
@@ -236,12 +255,20 @@ function App() {
 
   return (
     <div className="App">
-      <Header 
-        onFetchFeeds={handleFetchFeeds} 
+      <Header
+        onFetchFeeds={() => handleFetchFeeds(null)}
         fetching={fetching}
         fastMode={fastMode}
         onToggleFastMode={() => setFastMode(!fastMode)}
         onReCategorize={handleReCategorize}
+        onOpenFetchSettings={() => setFetchSettingsOpen(true)}
+      />
+      <FetchSettingsModal
+        isOpen={fetchSettingsOpen}
+        onClose={() => setFetchSettingsOpen(false)}
+        onFetch={handleFetchFeeds}
+        sourceCountries={sourceCountries}
+        isLoading={fetching}
       />
       <div className="container">
         <Stats stats={stats} hasActiveFilters={hasActiveFilters} />

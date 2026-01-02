@@ -4,8 +4,8 @@ A modern web application that aggregates cybersecurity news from leading sources
 
 ## Features
 
-- **Comprehensive News Aggregation**: Fetches news from 90+ authoritative cybersecurity sources
-- **Global Coverage**: Sources from all continents (except Antarctica), G20 countries, and EU member states
+- **Comprehensive News Aggregation**: Fetches news from 117+ authoritative cybersecurity sources across 36 countries
+- **Global Coverage**: Sources from all continents, G20 countries, EU member states, and NATO countries
 - **Automatic Updates**: Automatically fetches feeds every 12 hours in the background
 - **Manual Updates**: Fetch the latest news on-demand with a single click
 - **Advanced Filtering**: 
@@ -24,38 +24,49 @@ A modern web application that aggregates cybersecurity news from leading sources
 - **Beautiful UI**: Modern, responsive design with smooth animations and dark theme
 - **Statistics Dashboard**: View total articles, recent activity, category breakdowns, and publisher type statistics
 - **Fast Mode**: Option to show only articles from the last 24 hours for faster loading
+- **Advanced Fetch Settings**: Select specific countries to fetch news from (36 countries available)
 - **Pagination**: Navigate through large collections of articles efficiently
+- **Google Sheets Backend**: Uses Google Sheets as a serverless database via Google Apps Script API
 - **Automatic Cleanup**: Automatically removes articles older than 90 days to keep the database lean
+- **Capacity Management**: Auto-deletes oldest articles when approaching 5,000 article limit
 - **HTTP Caching**: Intelligent caching to reduce redundant feed fetches and improve performance
 
 ## News Sources
 
-The application aggregates news from **90+ sources** across four categories:
+The application aggregates news from **117+ sources** across **36 countries** in four categories:
 
 ### Industry News Sites (29 sources)
-- The Hacker News
-- BleepingComputer
-- Krebs on Security
-- Dark Reading
-- SecurityWeek
-- InfoSecurity Magazine
-- Security Boulevard
-- IT Security Guru
-- CyberScoop
-- Security Affairs
-- The Register Security
-- ZDNet Security
+- The Hacker News, BleepingComputer, Krebs on Security
+- Dark Reading, SecurityWeek, InfoSecurity Magazine
+- Security Boulevard, CyberScoop, Security Affairs
+- The Register Security, ZDNet Security
 - And many more...
 
-### Government Agencies (16 sources)
-- CISA (United States)
-- US-CERT Alerts
-- NCSC (United Kingdom)
-- ENISA (European Union)
-- CERT-EU
-- CSA Singapore
-- Canadian Centre for Cyber Security (CCCS)
-- And more from various countries...
+### Government CERTs (40+ sources from 36 countries)
+**North America:**
+- CISA, US-CERT (United States)
+- Canadian Centre for Cyber Security (Canada)
+
+**Europe:**
+- NCSC UK, ENISA, CERT-EU
+- BSI Germany, ANSSI France, NCSC Netherlands
+- CSIRT Italia, CCN-CERT Spain, CNCS Portugal
+- CERT-SE Sweden, NCSC-FI Finland, CFCS Denmark, NSM Norway
+- CERT.at Austria, CCB Belgium, GovCERT Switzerland
+- CERT.PL Poland, NUKIB Czech, SK-CERT Slovakia
+- CERT.LV Latvia, SI-CERT Slovenia, CERT.hr Croatia
+- CERT-RO Romania, CERT-UA Ukraine, GR-CERT Greece, NCSC Hungary
+
+**Asia-Pacific:**
+- JPCERT (Japan), CSA Singapore
+- GovCERT.HK, HKCERT (Hong Kong)
+- BGD e-GOV CIRT (Bangladesh)
+
+**Oceania:**
+- ACSC Australia, AusCERT, CERT NZ
+
+**Other:**
+- EG-CERT Egypt, CERT-IL Israel
 
 ### Security Vendors (34 sources)
 - Microsoft Security
@@ -81,20 +92,20 @@ The application aggregates news from **90+ sources** across four categories:
 
 ## Tech Stack
 
-- **Backend**: 
+- **Backend**:
   - Python 3.8+
   - Flask 3.0.0
-  - SQLAlchemy 2.0+
   - Feedparser 6.0+
   - APScheduler 3.10.4 (for automatic feed fetching)
   - Requests 2.31.0
   - Transformers (for local ML categorization)
   - PyTorch (for ML model inference)
-- **Frontend**: 
+- **Frontend**:
   - React
   - Axios
   - date-fns
-- **Database**: SQLite
+- **Database**: Google Sheets (via Google Apps Script REST API)
+- **API Layer**: Google Apps Script (serverless)
 
 ## Installation
 
@@ -171,10 +182,15 @@ This script will:
 
 ### Using the Application
 
-1. **Fetch News**: 
-   - Click the "Fetch Latest News" button to manually fetch articles from all sources
+1. **Fetch News**:
+   - Click the "Fetch News" button to manually fetch articles from all sources
+   - Click the gear icon (⚙️) next to Fetch News for **Advanced Fetch Settings**:
+     - Select specific countries to fetch from (36 countries available)
+     - See source count per country
+     - Search and filter countries
+     - Select All / Clear All options
    - The app automatically fetches feeds every 12 hours in the background
-   - First fetch may take 1-2 minutes as it fetches from 90+ sources
+   - First fetch may take 1-2 minutes as it fetches from 117+ sources
 
 2. **Filter Articles**:
    - **Search**: Use the search bar to find articles by keywords
@@ -199,11 +215,14 @@ This script will:
 ## API Endpoints
 
 - `GET /api/health` - Health check
-- `POST /api/feeds/fetch` - Manually fetch all RSS feeds
+- `POST /api/feeds/fetch` - Manually fetch RSS feeds
   - Optional body parameters:
     - `max_workers`: Number of parallel workers (default: 10)
     - `only_recent`: Fetch only recent articles (default: false)
     - `recent_days`: Days to look back for recent articles (default: 1)
+    - `countries`: Array of country names to fetch from (default: null = all countries)
+- `GET /api/feeds/sources-by-country` - Get list of countries with RSS sources
+  - Returns: `{countries: {country: source_count}, total_countries, total_sources}`
 - `GET /api/feeds/schedule` - Get information about automatic feed fetching schedule
 - `GET /api/articles` - Get articles with filters and pagination
   - Query parameters: 
@@ -239,18 +258,20 @@ To check the next scheduled fetch time:
 curl http://localhost:8000/api/feeds/schedule
 ```
 
-## Database Management
+## Database Management (Google Sheets)
 
-The app automatically manages database size by:
+The app uses Google Sheets as a serverless database with automatic management:
 - **Automatic Cleanup**: When fetching feeds, articles older than 90 days are automatically deleted
-- **Configurable Retention**: Set `ARTICLE_RETENTION_DAYS` environment variable to change retention period (default: 90 days)
+- **Capacity Limit**: Maximum 5,000 articles (auto-deletes oldest when exceeded)
 - **Duplicate Prevention**: Articles are deduplicated by URL, so fetching multiple times won't create duplicates
 - **HTTP Caching**: Uses ETag, Last-Modified, and Content-Hash to avoid redundant fetches
+- **Serverless**: No database server to maintain - data persists in Google Sheets
 
-To customize retention period:
-```bash
-export ARTICLE_RETENTION_DAYS=60  # Keep only last 60 days
-```
+### Google Sheets Setup
+
+1. Create a new Google Sheet
+2. Deploy the Google Apps Script from `google-apps-script/Code.gs`
+3. Update `backend/sheets_client.py` with your deployed script URL
 
 ## Content Categorization
 
@@ -306,9 +327,9 @@ Supports detection for:
 CyberNewsHub/
 ├── backend/
 │   ├── app.py              # Flask API server with RSS feed configuration
+│   ├── sheets_client.py    # Google Sheets API client
 │   ├── groq_categorizer.py # Groq LLM-based categorization
 │   ├── ml_categorizer.py   # Local ML model-based categorization
-│   ├── cybernews.db        # SQLite database (created automatically)
 │   ├── .env                # Environment variables (API keys, etc.) - not in git
 │   └── venv/               # Python virtual environment
 ├── frontend/
@@ -320,11 +341,14 @@ CyberNewsHub/
 │   │   │   ├── Filters.js
 │   │   │   ├── Header.js
 │   │   │   ├── Stats.js
-│   │   │   └── LoadingSpinner.js
+│   │   │   ├── LoadingSpinner.js
+│   │   │   └── FetchSettingsModal.js  # Advanced fetch settings
 │   │   ├── App.js          # Main app component
 │   │   ├── App.css
 │   │   └── index.js        # Entry point
 │   └── package.json
+├── google-apps-script/
+│   └── Code.gs             # Google Apps Script for Sheets API
 ├── requirements.txt        # Python dependencies
 ├── start.py               # Script to start both servers
 ├── setup.sh               # Setup script for first-time installation
@@ -386,49 +410,40 @@ The app continues to work with successful feeds. Check the fetch results for det
 
 ### Database Issues
 
-If you need to reset the database:
-```bash
-cd backend
-rm cybernews.db
-python app.py  # Database will be recreated automatically
-```
+The app uses Google Sheets as a database. To reset:
+1. Clear all rows in the "Articles" sheet (keep headers)
+2. Clear all rows in the "FeedCache" sheet (keep headers)
+3. Restart the backend
 
 ## Future Enhancements
 
-- Add more RSS feed sources
 - Implement article bookmarking/favorites
 - Add email notifications for breaking news
 - Implement user accounts and personalized feeds
 - Add RSS feed export functionality
-- Enhanced article tagging and categorization (already implemented with ML/AI)
-- Add dark mode theme toggle
 - Export articles to various formats (PDF, CSV, etc.)
 
 ## Deployment (Render.com - Free)
 
 ### Quick Deploy to Render
 
-1. **Create PostgreSQL Database** (required - SQLite won't persist on Render):
-   - Render Dashboard → "New +" → "PostgreSQL"
-   - Plan: Free (90 days free, then $7/month)
-   - Link this database to your backend service
+Since the app uses Google Sheets as a database (serverless), deployment is simplified:
 
-2. **Deploy Backend**:
+1. **Deploy Backend**:
    - "New +" → "Web Service"
    - Connect GitHub repo
-   - Build: `cd backend && python3 -m venv venv && . venv/bin/activate && pip install -r ../requirements.txt`
-   - Start: `cd backend && . venv/bin/activate && python app.py`
-   - Link the PostgreSQL database (sets `DATABASE_URL` automatically)
+   - Build: `cd backend && pip install -r ../requirements.txt`
+   - Start: `cd backend && python app.py`
    - Plan: Free
 
-3. **Deploy Frontend**:
+2. **Deploy Frontend**:
    - "New +" → "Static Site"
    - Connect same repo
    - Build: `cd frontend && npm install && npm run build`
    - Publish: `frontend/build`
    - Env var: `REACT_APP_API_URL` = `https://your-backend-url.onrender.com/api`
 
-**Note**: The app auto-detects PostgreSQL via `DATABASE_URL`. Without it, SQLite will lose data on every restart.
+**Note**: No database setup required - data persists in Google Sheets automatically.
 
 ## Contributing
 

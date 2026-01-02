@@ -187,6 +187,32 @@
   background: var(--bg-card);
 }
 
+/* Fetch buttons group */
+.fetch-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-settings {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  padding: 8px;
+  width: 36px;
+  height: 36px;
+}
+
+.btn-settings:hover:not(:disabled) {
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.btn-settings svg {
+  flex-shrink: 0;
+}
+
 .btn-spinner {
   width: 14px;
   height: 14px;

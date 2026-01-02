@@ -131,6 +131,48 @@ RSS_FEEDS = {
         # G20 Countries - Oceania (Verified Working)
         {'name': 'ACSC Australia', 'url': 'https://www.cyber.gov.au/rss.xml', 'category': 'Government'},  # Australia
         {'name': 'CERT NZ', 'url': 'https://www.cert.govt.nz/rss.xml', 'category': 'Government'},  # New Zealand
+
+        # === EXPANDED G20/EU/NATO COVERAGE (English Sources) ===
+
+        # G20 - Europe Additional
+        {'name': 'CSIRT Italia', 'url': 'https://csirt.gov.it/data/indexer/rss', 'category': 'Government'},  # Italy
+
+        # EU Members - Northern Europe
+        {'name': 'NCSC-FI Finland', 'url': 'https://www.kyberturvallisuuskeskus.fi/feed/rss/en', 'category': 'Government'},  # Finland (English)
+        {'name': 'CERT-SE Sweden', 'url': 'https://www.cert.se/feed.rss', 'category': 'Government'},  # Sweden
+        {'name': 'CFCS Denmark', 'url': 'https://www.cert.dk/nyheder/rss', 'category': 'Government'},  # Denmark
+        {'name': 'NSM Norway', 'url': 'https://nsm.no/fagomrader/digital-sikkerhet/nasjonalt-cybersikkerhetssenter/varsler-fra-ncsc/rss/', 'category': 'Government'},  # Norway (NATO)
+
+        # EU Members - Central Europe
+        {'name': 'CERT.at Austria', 'url': 'https://cert.at/cert-at.en.blog.rss_2.0.xml', 'category': 'Government'},  # Austria (English)
+        {'name': 'CCB Belgium', 'url': 'https://cert.be/en/rss', 'category': 'Government'},  # Belgium (English)
+        {'name': 'GovCERT Switzerland', 'url': 'https://www.govcert.ch/blog/rss.xml', 'category': 'Government'},  # Switzerland (English)
+        {'name': 'NUKIB Czech', 'url': 'https://nukib.gov.cz/rss.xml', 'category': 'Government'},  # Czech Republic
+        {'name': 'CERT.PL Poland', 'url': 'https://cert.pl/en/rss.xml', 'category': 'Government'},  # Poland (English)
+        {'name': 'SK-CERT Slovakia', 'url': 'https://www.sk-cert.sk/index.html?feed=rss', 'category': 'Government'},  # Slovakia
+        {'name': 'NCSC Hungary', 'url': 'https://nki.gov.hu/figyelmeztetesek/riasztas/feed/', 'category': 'Government'},  # Hungary
+
+        # EU Members - Eastern Europe
+        {'name': 'CERT.LV Latvia', 'url': 'https://cert.lv/en/feed/rss/all', 'category': 'Government'},  # Latvia (English)
+        {'name': 'SI-CERT Slovenia', 'url': 'https://www.cert.si/en/category/news/feed/', 'category': 'Government'},  # Slovenia (English)
+        {'name': 'CERT.hr Croatia', 'url': 'https://www.cert.hr/feed/', 'category': 'Government'},  # Croatia
+        {'name': 'CERT-RO Romania', 'url': 'https://dnsc.ro/feed', 'category': 'Government'},  # Romania
+        {'name': 'CERT-UA Ukraine', 'url': 'https://cert.gov.ua/api/articles/rss', 'category': 'Government'},  # Ukraine
+
+        # EU Members - Southern Europe
+        {'name': 'CCN-CERT Spain', 'url': 'https://www.ccn-cert.cni.es/component/obrss/rss-noticias.feed', 'category': 'Government'},  # Spain
+        {'name': 'CNCS Portugal', 'url': 'https://www.cncs.gov.pt/docs/noticias/feed-rss/index.xml', 'category': 'Government'},  # Portugal
+        {'name': 'GR-CERT Greece', 'url': 'https://cert.grnet.gr/feed/', 'category': 'Government'},  # Greece (Academic CERT)
+
+        # Asia-Pacific Additional
+        {'name': 'GovCERT.HK', 'url': 'https://www.govcert.gov.hk/en/rss_security_alerts.xml', 'category': 'Government'},  # Hong Kong (English)
+        {'name': 'HKCERT', 'url': 'https://www.hkcert.org/getrss/security-bulletin', 'category': 'Government'},  # Hong Kong (English)
+        {'name': 'BGD e-GOV CIRT', 'url': 'https://www.cirt.gov.bd/feed/', 'category': 'Government'},  # Bangladesh
+
+        # Other Regions
+        {'name': 'EG-CERT Egypt', 'url': 'https://www.egcert.eg/feed/', 'category': 'Government'},  # Egypt
+        {'name': 'CERT-IL Israel', 'url': 'https://www.gov.il/he/api/PublicationApi/rss/4bcc13f5-fed6-4b8c-b8ee-7bf4a6bc81c8', 'category': 'Government'},  # Israel
+        {'name': 'AusCERT', 'url': 'https://auscert.org.au/rss/bulletins/', 'category': 'Government'},  # Australia (Academic/Industry)
     ],
     'vendors': [
         # === NORTH AMERICA ===
@@ -211,6 +253,195 @@ RSS_FEEDS = {
         {'name': 'Kaspersky Research', 'url': 'https://securelist.com/feed/', 'category': 'Research'},
     ]
 }
+
+# Map each RSS feed to its country/region for filtered fetching
+# Only countries with at least one source will be available for selection
+FEED_COUNTRY_MAP = {
+    # === INDUSTRY FEEDS ===
+    # USA
+    'The Hacker News': 'United States',
+    'BleepingComputer': 'United States',
+    'Krebs on Security': 'United States',
+    'Dark Reading': 'United States',
+    'SC Magazine': 'United States',
+    'SecurityWeek': 'United States',
+    'Threatpost': 'United States',
+    'CSO Online': 'United States',
+    'InfoSecurity Magazine': 'United States',
+    'Help Net Security': 'United States',
+    'IT Security Guru': 'United States',
+    'Security Boulevard': 'United States',
+    'CyberScoop': 'United States',
+    'Security Affairs': 'United States',
+    'Schneier on Security': 'United States',
+    'Graham Cluley': 'United Kingdom',
+    'Ars Technica Security': 'United States',
+    'The Register Security': 'United Kingdom',
+    'ZDNet Security': 'United States',
+    'Packet Storm Security': 'United States',
+    # UK/Europe Industry
+    'WeLiveSecurity': 'Slovakia',  # ESET is Slovak
+    'Naked Security': 'United Kingdom',
+    'Computer Weekly Security': 'United Kingdom',
+    'Heise Security': 'Germany',
+    'Security.nl': 'Netherlands',
+    'Niebezpiecznik': 'Poland',
+    # Australia
+    'CSO Australia': 'Australia',
+    'IT News Australia': 'Australia',
+
+    # === GOVERNMENT/CERT FEEDS ===
+    # USA
+    'CISA': 'United States',
+    'US-CERT Alerts': 'United States',
+    'US-CERT Bulletins': 'United States',
+    # Canada
+    'CCCS Advisories': 'Canada',
+    'CCCS Alerts': 'Canada',
+    'CCCS News': 'Canada',
+    # EU
+    'ENISA': 'European Union',
+    'CERT-EU': 'European Union',
+    # UK
+    'NCSC UK': 'United Kingdom',
+    # Germany
+    'BSI Germany': 'Germany',
+    # France
+    'ANSSI France': 'France',
+    # Netherlands
+    'NCSC Netherlands': 'Netherlands',
+    # Singapore
+    'CSA Singapore': 'Singapore',
+    # Japan
+    'JPCERT': 'Japan',
+    # Australia/NZ
+    'ACSC Australia': 'Australia',
+    'CERT NZ': 'New Zealand',
+    'AusCERT': 'Australia',
+    # Italy
+    'CSIRT Italia': 'Italy',
+    # Nordic
+    'NCSC-FI Finland': 'Finland',
+    'CERT-SE Sweden': 'Sweden',
+    'CFCS Denmark': 'Denmark',
+    'NSM Norway': 'Norway',
+    # Central Europe
+    'CERT.at Austria': 'Austria',
+    'CCB Belgium': 'Belgium',
+    'GovCERT Switzerland': 'Switzerland',
+    'NUKIB Czech': 'Czech Republic',
+    'CERT.PL Poland': 'Poland',
+    'SK-CERT Slovakia': 'Slovakia',
+    'NCSC Hungary': 'Hungary',
+    # Eastern Europe
+    'CERT.LV Latvia': 'Latvia',
+    'SI-CERT Slovenia': 'Slovenia',
+    'CERT.hr Croatia': 'Croatia',
+    'CERT-RO Romania': 'Romania',
+    'CERT-UA Ukraine': 'Ukraine',
+    # Southern Europe
+    'CCN-CERT Spain': 'Spain',
+    'CNCS Portugal': 'Portugal',
+    'GR-CERT Greece': 'Greece',
+    # Asia-Pacific
+    'GovCERT.HK': 'Hong Kong',
+    'HKCERT': 'Hong Kong',
+    'BGD e-GOV CIRT': 'Bangladesh',
+    # Middle East/Africa
+    'EG-CERT Egypt': 'Egypt',
+    'CERT-IL Israel': 'Israel',
+
+    # === VENDOR FEEDS ===
+    # USA
+    'Microsoft Security': 'United States',
+    'Google Security': 'United States',
+    'Cisco Talos': 'United States',
+    'Cloudflare Blog': 'United States',
+    'Palo Alto Unit42': 'United States',
+    'CrowdStrike': 'United States',
+    'Mandiant': 'United States',
+    'Proofpoint': 'United States',
+    'Zscaler': 'United States',
+    'IBM Security': 'United States',
+    'Rapid7': 'United States',
+    'Tenable': 'United States',
+    'Qualys': 'United States',
+    'Okta': 'United States',
+    'SentinelOne': 'United States',
+    'Cybereason': 'United States',
+    'Varonis': 'United States',
+    'FireEye': 'United States',
+    'Symantec': 'United States',
+    'McAfee': 'United States',
+    'Bitdefender': 'Romania',
+    'Malwarebytes': 'United States',
+    'Fortinet': 'United States',
+    'AWS Security': 'United States',
+    'GitHub Security': 'United States',
+    # UK
+    'Sophos': 'United Kingdom',
+    'Darktrace': 'United Kingdom',
+    # Russia
+    'Kaspersky SecureList': 'Russia',
+    # Finland
+    'F-Secure': 'Finland',
+    # Czech Republic
+    'Avast': 'Czech Republic',
+    # Slovakia
+    'ESET': 'Slovakia',
+    # Japan
+    'Trend Micro': 'Japan',
+    # Israel
+    'Check Point': 'Israel',
+    'CyberArk': 'Israel',
+
+    # === RESEARCH FEEDS ===
+    # USA
+    'SANS ISC': 'United States',
+    'Mandiant Research': 'United States',
+    'Secureworks Research': 'United States',
+    'Malwarebytes Labs': 'United States',
+    'NIST Cybersecurity': 'United States',
+    # Canada
+    'Citizen Lab': 'Canada',
+    # Israel
+    'Check Point Research': 'Israel',
+    # Finland
+    'F-Secure Labs': 'Finland',
+    # Czech Republic
+    'Avast Threat Labs': 'Czech Republic',
+    # Slovakia
+    'ESET Research': 'Slovakia',
+    # UK
+    'NCC Group Research': 'United Kingdom',
+    # Japan
+    'Trend Micro Research': 'Japan',
+    # Russia
+    'Kaspersky Research': 'Russia',
+}
+
+def get_countries_with_sources():
+    """Get list of countries that have at least one RSS source, with source count"""
+    country_sources = {}
+    for feed_name, country in FEED_COUNTRY_MAP.items():
+        if country not in country_sources:
+            country_sources[country] = []
+        country_sources[country].append(feed_name)
+    return {country: len(sources) for country, sources in sorted(country_sources.items())}
+
+def get_feeds_for_countries(selected_countries):
+    """Filter RSS feeds to only include those from selected countries"""
+    if not selected_countries:
+        return None  # Return None to indicate no filtering (fetch all)
+
+    selected_set = set(selected_countries)
+    selected_feeds = set()
+
+    for feed_name, country in FEED_COUNTRY_MAP.items():
+        if country in selected_set:
+            selected_feeds.add(feed_name)
+
+    return selected_feeds
 
 # Article helper function for formatting
 def format_article(article):
@@ -392,7 +623,62 @@ def get_country_region(source_name, url, title=None, description=None):
     
     if 'cyber.gc.ca' in url_lower or 'cccs' in source_lower or '.gc.ca' in url_lower:
         countries.add('Canada')
-    
+
+    # === EXPANDED GOVERNMENT/CERT SOURCES ===
+    # G20/EU/NATO CERTs
+    if 'csirt italia' in source_lower or 'csirt.gov.it' in url_lower:
+        countries.add('Italy')
+    if 'ncsc-fi' in source_lower or 'kyberturvallisuuskeskus' in url_lower:
+        countries.add('Finland')
+    if 'cert-se' in source_lower or 'cert.se' in url_lower:
+        countries.add('Sweden')
+    if 'cfcs' in source_lower or 'cert.dk' in url_lower:
+        countries.add('Denmark')
+    if 'nsm norway' in source_lower or 'nsm.no' in url_lower:
+        countries.add('Norway')
+    if 'cert.at' in source_lower or 'cert.at' in url_lower:
+        countries.add('Austria')
+    if 'ccb belgium' in source_lower or 'cert.be' in url_lower:
+        countries.add('Belgium')
+    if 'govcert switzerland' in source_lower or 'govcert.ch' in url_lower:
+        countries.add('Switzerland')
+    if 'nukib' in source_lower or 'nukib.gov.cz' in url_lower:
+        countries.add('Czech Republic')
+    if 'cert.pl' in source_lower or 'cert.pl' in url_lower:
+        countries.add('Poland')
+    if 'sk-cert' in source_lower or 'sk-cert.sk' in url_lower:
+        countries.add('Slovakia')
+    if 'ncsc hungary' in source_lower or 'nki.gov.hu' in url_lower:
+        countries.add('Hungary')
+    if 'cert.lv' in source_lower or 'cert.lv' in url_lower:
+        countries.add('Latvia')
+    if 'si-cert' in source_lower or 'cert.si' in url_lower:
+        countries.add('Slovenia')
+    if 'cert.hr' in source_lower or 'cert.hr' in url_lower:
+        countries.add('Croatia')
+    if 'cert-ro' in source_lower or 'dnsc.ro' in url_lower:
+        countries.add('Romania')
+    if 'cert-ua' in source_lower or 'cert.gov.ua' in url_lower:
+        countries.add('Ukraine')
+    if 'ccn-cert' in source_lower or 'ccn-cert.cni.es' in url_lower:
+        countries.add('Spain')
+    if 'cncs portugal' in source_lower or 'cncs.gov.pt' in url_lower:
+        countries.add('Portugal')
+    if 'gr-cert' in source_lower or 'cert.grnet.gr' in url_lower:
+        countries.add('Greece')
+    if 'govcert.hk' in source_lower or 'govcert.gov.hk' in url_lower:
+        countries.add('Hong Kong')
+    if 'hkcert' in source_lower or 'hkcert.org' in url_lower:
+        countries.add('Hong Kong')
+    if 'bgd' in source_lower or 'cirt.gov.bd' in url_lower:
+        countries.add('Bangladesh')
+    if 'eg-cert' in source_lower or 'egcert.eg' in url_lower:
+        countries.add('Egypt')
+    if 'cert-il' in source_lower:
+        countries.add('Israel')
+    if 'auscert' in source_lower or 'auscert.org.au' in url_lower:
+        countries.add('Australia')
+
     # === SOURCE-SPECIFIC DETECTION (before vendor detection) ===
     # Handle specific sources that might have ambiguous TLDs or need explicit country assignment
     if 'itmedia' in source_lower or 'itmedia.co.jp' in url_lower:
@@ -1018,6 +1304,16 @@ def fetch_rss_feed(feed_config):
 def health():
     return jsonify({'status': 'healthy'})
 
+@app.route('/api/feeds/sources-by-country', methods=['GET'])
+def get_sources_by_country():
+    """Get list of countries that have RSS sources configured"""
+    country_sources = get_countries_with_sources()
+    return jsonify({
+        'countries': country_sources,
+        'total_countries': len(country_sources),
+        'total_sources': sum(country_sources.values())
+    })
+
 @app.route('/api/feeds/schedule', methods=['GET'])
 def get_schedule_info():
     """Get information about automatic feed fetching schedule"""
@@ -1040,16 +1336,32 @@ def get_schedule_info():
         'message': 'Automatic feed fetching is not enabled'
     })
 
-def fetch_all_feeds_internal(max_workers=10, only_recent=False, recent_days=1):
-    """Internal function to fetch all RSS feeds - can be called manually or by scheduler"""
+def fetch_all_feeds_internal(max_workers=10, only_recent=False, recent_days=1, countries=None):
+    """Internal function to fetch all RSS feeds - can be called manually or by scheduler
+
+    Args:
+        max_workers: Number of parallel workers
+        only_recent: Only fetch recent articles
+        recent_days: Number of days to look back
+        countries: List of countries to fetch from (None = all countries)
+    """
     all_articles = []
     successful_feeds = 0
     failed_feeds = 0
-    
-    # Collect all feeds
+
+    # Get feed names to include based on country filter
+    allowed_feeds = get_feeds_for_countries(countries) if countries else None
+
+    # Collect all feeds, optionally filtering by country
     all_feed_configs = []
     for category, feeds in RSS_FEEDS.items():
-        all_feed_configs.extend(feeds)
+        for feed in feeds:
+            # If we have a country filter, only include feeds from those countries
+            if allowed_feeds is not None:
+                if feed['name'] in allowed_feeds:
+                    all_feed_configs.append(feed)
+            else:
+                all_feed_configs.append(feed)
     
     total_feeds = len(all_feed_configs)
     
@@ -1153,13 +1465,21 @@ def scheduled_fetch_feeds():
 
 @app.route('/api/feeds/fetch', methods=['POST'])
 def fetch_all_feeds():
-    """Manual endpoint to fetch all RSS feeds and store in database"""
+    """Manual endpoint to fetch all RSS feeds and store in database
+
+    Accepts JSON body with optional parameters:
+    - max_workers: Number of parallel fetch workers (default: 10)
+    - only_recent: Only fetch articles from last 24 hours (default: false)
+    - recent_days: Days to look back (default: 1)
+    - countries: List of country names to fetch from (default: null = all)
+    """
     # Get optional parameters
     max_workers = int(request.json.get('max_workers', 10)) if request.json else 10
     only_recent = request.json.get('only_recent', False) if request.json else False
-    recent_days = int(request.json.get('recent_days', 1)) if request.json else 1  # Default to 1 day (24 hours)
-    
-    result = fetch_all_feeds_internal(max_workers, only_recent, recent_days)
+    recent_days = int(request.json.get('recent_days', 1)) if request.json else 1
+    countries = request.json.get('countries', None) if request.json else None  # List of country names
+
+    result = fetch_all_feeds_internal(max_workers, only_recent, recent_days, countries)
     
     if result['status'] == 'error':
         return jsonify(result), 500
@@ -1232,20 +1552,29 @@ def get_countries():
     sheets = get_sheets_client()
     db_countries = set(sheets.get_countries())
 
-    # Define all supported countries
+    # Define all supported countries (G20, EU, NATO, and additional)
     all_supported_countries = {
+        # G20 Countries
         'Argentina', 'Australia', 'Brazil', 'Canada', 'China', 'France', 'Germany',
         'India', 'Indonesia', 'Italy', 'Japan', 'Mexico', 'Russia', 'Saudi Arabia',
         'South Africa', 'South Korea', 'Turkey', 'United Kingdom', 'United States',
+        # EU Countries
         'European Union', 'Austria', 'Belgium', 'Bulgaria', 'Croatia', 'Cyprus',
         'Czech Republic', 'Denmark', 'Estonia', 'Finland', 'Greece', 'Hungary',
         'Ireland', 'Latvia', 'Lithuania', 'Luxembourg', 'Malta', 'Netherlands',
         'Poland', 'Portugal', 'Romania', 'Slovakia', 'Slovenia', 'Spain', 'Sweden',
-        'Chile', 'Colombia', 'Peru', 'Venezuela', 'Uruguay', 'Paraguay', 'Bolivia',
-        'Ecuador', 'Thailand', 'Vietnam', 'Philippines', 'Malaysia', 'Taiwan',
-        'Singapore', 'Egypt', 'Nigeria', 'Kenya', 'Morocco', 'Tunisia', 'Algeria',
-        'Pakistan', 'Bangladesh', 'Sri Lanka', 'Myanmar', 'Cambodia', 'Laos',
-        'Israel', 'United Arab Emirates', 'New Zealand', 'Switzerland', 'Norway'
+        # NATO Countries (additional)
+        'Albania', 'Iceland', 'Montenegro', 'North Macedonia', 'Norway',
+        # South America
+        'Chile', 'Colombia', 'Peru', 'Venezuela', 'Uruguay', 'Paraguay', 'Bolivia', 'Ecuador',
+        # Asia-Pacific
+        'Thailand', 'Vietnam', 'Philippines', 'Malaysia', 'Taiwan', 'Singapore',
+        'Hong Kong', 'Bangladesh', 'Sri Lanka', 'Myanmar', 'Cambodia', 'Laos',
+        # Middle East & Africa
+        'Egypt', 'Nigeria', 'Kenya', 'Morocco', 'Tunisia', 'Algeria',
+        'Israel', 'United Arab Emirates',
+        # Other
+        'Pakistan', 'New Zealand', 'Switzerland', 'Ukraine'
     }
 
     all_countries = db_countries.union(all_supported_countries)
